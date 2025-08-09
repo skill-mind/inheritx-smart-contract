@@ -1,111 +1,41 @@
 
 
-# Contributing to Fortichain: Enhancing the security of blockchain-based projects. 
+# Contributing to InheritX Smart Contract
 
-Thank you for your interest in contributing to Fortichain! 
-
-FortiChain is a decentralized platform designed to enhance the security of blockchain-based projects by streamlining vulnerability disclosure and bug bounty processes. By leveraging blockchain’s inherent transparency and trustlessness, FortiChain allows developers, security researchers, and validators to engage in a secure and automated ecosystem for identifying and rewarding the resolution of smart contract vulnerabilities.
+Thank you for your interest in contributing to InheritX! **InheritX** is a revolutionary blockchain-powered digital asset inheritance platform that empowers users to securely manage, transfer, and optimize their digital assets—including cryptocurrencies and NFTs—using a decentralized exchange (DEX) swap feature. Built on StarkNet, InheritX ensures transparency, security, and automation in digital estate planning.
 
 ## Project Overview
 
-**FortiChain** Enhancing the security of blockchain-based projects:
+**InheritX** combines:
+- **Digital Asset Inheritance:** Secure, automated transfer of digital assets to designated beneficiaries.
+- **DEX Swap Integration**: Pre- and post-inheritance asset swaps for optimal portfolio management.
+- **Blockchain Technology:** Leveraging **StarkNet** to guarantee a decentralized, trustless, and secure environment.
+- **User-Centric Design:** Intuitive dashboards and robust identity verification for asset owners and beneficiaries.
 
-- **Smart Contract Developers/Project Owners**: Looking for an unbiased mechanism to audit and secure their code.
-- **Security Researchers/Bug Hunters**: Seeking transparent and reliable platforms to report vulnerabilities and earn rewards.
-- **Community Validators/Reviewers**: Interested in contributing to security oversight and earning reputation or token-based incentives.
-- **Blockchain Ecosystem Participants**: Including organizations and individuals who value transparency and security in decentralized applications.
+# How to Apply 
+1. Star the project
+2. Drop your TG handle
+3. Join the group `https://t.me/+xN161b3GkwNiYTZk`
 
-## Key Features & Functional Requirements
-
-### 1 Project Registration & Management
-
-**Feature:** On-chain registration for smart contracts.
-
-**Requirements:**
-- Ability for project owners to submit smart contract details (e.g., code repository links, deployment addresses).
-- Versioning and audit trail for any changes to the registered contract.
-- Verification process to validate project ownership (e.g., cryptographic signatures).
-
----
-
-### 2 Vulnerability Submission & Reporting
-
-**Feature:** Secure submission of vulnerability reports.
-
-**Requirements:**
-- Interface for security researchers to confidentially submit vulnerability details.
-- Option to attach proof-of-concept files, screenshots, or documentation.
-- Timestamping and immutable record creation on-chain.
-- Option for researchers to choose public disclosure or private reporting (with potential delayed public reveal upon resolution).
-
----
-
-### 3 Decentralized Review & Verification
-
-**Feature:** Community-driven validation of submitted vulnerabilities.
-
-**Requirements:**
-- Voting mechanism where pre-approved validators/reviewers can assess the validity of a vulnerability.
-- Reputation system to score reviewers based on historical accuracy and participation.
-- Smart contract–based arbitration that triggers once consensus is reached.
-- Incentives (tokens) for accurate reviews and penalties for fraudulent claims.
-
----
-
-### 4 Automated Bounty Management
-
-**Feature:** Smart contract automation for bounty escrow and payout.
-
-**Requirements:**
-- Escrow system where project owners deposit bounty funds in tokens.
-- Smart contract logic to release funds automatically upon successful vulnerability validation.
-- Provisions for partial payouts in cases of multi-stage vulnerabilities.
-- Audit trail for every transaction ensuring transparency.
-
----
-
-### 5 Token & Reputation Incentives
-
-**Feature:** Native token integration for rewards and reputation tracking.
-
-**Requirements:**
-- Creation of a utility token used for bounties, voting rewards, and reputation stakes.
-- Smart contracts to manage token issuance, distribution, and burning.
-- A reputation system that influences voting power and eligibility for higher-value bounties.
-- Transparent metrics for performance and participation.
-
----
 
 ## How to Contribute
 
 We welcome contributions in various forms, including bug fixes, feature implementations, and documentation improvements.
 
 ### 1. Fork the Repository
-1. Navigate to the
-(https://github.com/skill-mind/FortiChain-Smart_Contracts.git).
+1. Navigate to the 
+(https://github.com/skill-mind/InheritX-smart_contract.git).
 2. Click the **Fork** button to create your copy of the repository.
 
 ### 2. Clone the Repository
 - Clone your forked repository to your local machine:
 ```bash
-git clone https://github.com/<your-username>/skill-mind/FortiChain-Smart_Contracts.git
-
-cd FortiChain-Smart_Contracts
+git clone https://github.com/<your-username>/InheritX-smart_contract.git
+cd InheritX-smart_contract
 ```
 
-### 3. Set Up the Project
-**Prerequisites:**
 
-- Rust
-- Scarb
-- git
-
-**Install Dependencies:**
-
-```bash
-  npm install
-```
-### 4. Create a New Branch
+### 3. Create a New Branch
 
 **Create a branch for your feature or bug fix:**
 ```bash
@@ -144,3 +74,118 @@ cd FortiChain-Smart_Contracts
 - Write clean and modular code following the repository's coding standards.
 - Ensure all changes are tested before submission.
 - Document new features and updates thoroughly.
+
+# Upgradeable Contract System Deployment Guide
+
+This document provides instructions for deploying and upgrading the counter contract system using Starknet.
+
+## Prerequisites
+
+- Starknet CLI installed
+- Cairo compiler installed
+- Account configured with Starknet
+
+## Deployment Steps
+
+### 1. Compile the Contracts
+
+First, compile all the contracts:
+
+```bash
+scarb build
+```
+
+### 2. Declare Logic Contract (V1)
+
+```bash
+starknet declare --contract target/release/CounterLogic.json
+```
+
+Make note of the returned class hash: `0x<LOGIC_CLASS_HASH>`
+
+### 3. Deploy Logic Contract (V1)
+
+```bash
+starknet deploy --class_hash 0x<LOGIC_CLASS_HASH> --inputs <OWNER_ADDRESS>
+```
+
+### 4. Declare Proxy Contract
+
+```bash
+starknet declare --contract target/release/CounterProxy.json
+```
+
+Make note of the returned class hash: `0x<PROXY_CLASS_HASH>`
+
+### 5. Deploy Proxy Contract
+
+```bash
+starknet deploy --class_hash 0x<PROXY_CLASS_HASH> --inputs <OWNER_ADDRESS> <LOGIC_CLASS_HASH>
+```
+
+Your proxy contract is now deployed with the class hash of the logic contract. The proxy contract will be the one users interact with.
+
+## Upgrading the Contract
+
+When you want to upgrade to a new version of the logic contract, follow these steps:
+
+### 1. Declare New Logic Contract (V2)
+
+```bash
+starknet declare --contract target/release/CounterLogicV2.json
+```
+
+Make note of the returned class hash: `0x<LOGIC_V2_CLASS_HASH>`
+
+### 2. Call the Upgrade Function on Proxy
+
+```bash
+starknet invoke \
+  --address <PROXY_CONTRACT_ADDRESS> \
+  --function upgrade \
+  --inputs <LOGIC_V2_CLASS_HASH> \
+  --account <YOUR_ACCOUNT>
+```
+
+### 3. Verify the Upgrade
+
+You can verify that the logic contract has been upgraded by calling the `get_version` function:
+
+```bash
+starknet call \
+  --address <PROXY_CONTRACT_ADDRESS> \
+  --function get_version
+```
+
+The response should be "v2.0", confirming that the upgrade was successful.
+
+## State Persistence
+
+The beauty of this upgrade pattern is that all state is stored in the proxy contract. When you upgrade the logic contract, the state remains intact in the proxy contract's storage. This means:
+
+1. Counter values will persist after an upgrade
+2. Ownership will remain the same
+3. Any other state variables will be preserved
+
+## Security Considerations
+
+1. Only the contract owner can perform an upgrade
+2. The proxy pattern ensures that state is preserved during upgrades
+3. New implementations can add functionality but shouldn't change the storage layout
+
+## Community Engagement
+
+Join our Telegram group to discuss this project and share your feedback:
+[TG Group Link] (replace with your actual TG group link)
+
+When you join, please drop your TG handle so we can welcome you properly!
+
+## Troubleshooting
+
+If you encounter any issues during deployment or upgrade, please:
+
+1. Verify that you're using the correct class hashes
+2. Make sure you're calling functions with the correct account (owner)
+3. Check transaction receipts for detailed error messages
+
+Thank you for contributing to InheritX and helping us build a secure, innovative platform for digital asset inheritance!
