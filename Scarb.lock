@@ -2,7 +2,7 @@
 version = 1
 
 [[package]]
-name = "fortichain_contracts"
+name = "inheritx_contracts"
 version = "0.1.0"
 dependencies = [
  "openzeppelin",

@@ -1,5 +1,4 @@
-use starknet::ContractAddress;
-use starknet::ClassHash;
+use starknet::{ClassHash, ContractAddress};
 use super::types::AssetType;
 
 // ================ INHERITANCE PLAN EVENTS ================
