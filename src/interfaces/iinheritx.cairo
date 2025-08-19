@@ -1,3 +1,4 @@
+use core::byte_array::ByteArray;
 use starknet::{ClassHash, ContractAddress};
 use crate::base::types::{InheritancePlan, KYCData, SwapRequest};
 

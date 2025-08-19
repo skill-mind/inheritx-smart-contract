@@ -7,3 +7,5 @@ pub mod base {
 pub mod interfaces {
     pub mod iinheritx;
 }
+
+pub mod inheritx;

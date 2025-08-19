@@ -1,3 +1,4 @@
+use core::byte_array::ByteArray;
 use starknet::ContractAddress;
 
 // Asset types enum
@@ -42,7 +43,7 @@ pub enum PlanStatus {
 pub struct InheritancePlan {
     pub id: u256,
     pub owner: ContractAddress,
-    pub beneficiary_count: u8,
+    pub beneficiary_count: u8, // Number of beneficiaries
     pub asset_type: AssetType,
     pub asset_amount: u256,
     pub nft_token_id: u256,
@@ -119,7 +120,7 @@ pub struct BeneficiaryShare {
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct PlanOverrideRequest {
     pub plan_id: u256,
-    pub new_beneficiary_count: u8,
+    pub new_beneficiary_count: u8, // Number of new beneficiaries
     pub new_timeframe: u64,
     pub new_encrypted_details: ByteArray,
     pub requester: ContractAddress,
