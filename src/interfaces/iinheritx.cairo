@@ -1,124 +1,204 @@
 use core::byte_array::ByteArray;
 use starknet::{ClassHash, ContractAddress};
-use crate::base::types::{InheritancePlan, KYCData, SwapRequest};
+use crate::base::types::{
+    Beneficiary, ClaimCode, EscrowAccount, InactivityMonitor, InheritancePlan, SecuritySettings,
+};
 
 #[starknet::interface]
 pub trait IInheritX<TContractState> {
     // ================ INHERITANCE PLAN FUNCTIONS ================
 
-    /// @notice Creates a new inheritance plan
+    /// @notice Creates a new inheritance plan with enhanced features
     /// @param beneficiaries Array of beneficiary addresses
     /// @param asset_type Type of asset (0: STRK, 1: USDT, 2: USDC, 3: NFT)
     /// @param asset_amount Amount of tokens (0 for NFTs)
     /// @param nft_token_id NFT token ID (0 for tokens)
+    /// @param nft_contract NFT contract address (0 for tokens)
     /// @param timeframe Time in seconds until plan becomes active
     /// @param guardian Optional guardian address (0 for no guardian)
     /// @param encrypted_details Encrypted inheritance details
+    /// @param security_level Security level (1-5)
+    /// @param auto_execute Whether to auto-execute on maturity
+    /// @param emergency_contacts Array of emergency contact addresses
     fn create_inheritance_plan(
         ref self: TContractState,
         beneficiaries: Array<ContractAddress>,
         asset_type: u8,
         asset_amount: u256,
         nft_token_id: u256,
+        nft_contract: ContractAddress,
         timeframe: u64,
         guardian: ContractAddress,
         encrypted_details: ByteArray,
+        security_level: u8,
+        auto_execute: bool,
+        emergency_contacts: Array<ContractAddress>,
     ) -> u256;
 
-    /// @notice Executes an inheritance plan immediately
-    /// @param plan_id ID of the plan to execute
-    fn execute_plan_immediately(ref self: TContractState, plan_id: u256);
-
-    /// @notice Overrides an existing inheritance plan
-    /// @param plan_id ID of the plan to override
-    /// @param new_beneficiaries New beneficiary addresses
-    /// @param new_timeframe New timeframe
-    /// @param new_encrypted_details New encrypted details
-    fn override_inheritance_plan(
+    /// @notice Adds a beneficiary to an existing plan
+    /// @param plan_id ID of the plan
+    /// @param beneficiary Beneficiary address
+    /// @param percentage Share percentage (0-100)
+    /// @param email_hash Hash of beneficiary email
+    /// @param age Beneficiary age
+    /// @param relationship Encrypted relationship information
+    fn add_beneficiary_to_plan(
         ref self: TContractState,
         plan_id: u256,
-        new_beneficiaries: Array<ContractAddress>,
-        new_timeframe: u64,
-        new_encrypted_details: ByteArray,
+        beneficiary: ContractAddress,
+        percentage: u8,
+        email_hash: ByteArray,
+        age: u8,
+        relationship: ByteArray,
     );
 
-    /// @notice Claims assets from an inheritance plan
+    /// @notice Removes a beneficiary from a plan
+    /// @param plan_id ID of the plan
+    /// @param beneficiary Beneficiary address to remove
+    /// @param reason Reason for removal
+    fn remove_beneficiary_from_plan(
+        ref self: TContractState, plan_id: u256, beneficiary: ContractAddress, reason: ByteArray,
+    );
+
+    /// @notice Claims assets from an inheritance plan using claim code
     /// @param plan_id ID of the plan to claim from
-    /// @param claim_code Secret claim code
+    /// @param claim_code Secret claim code hash
     fn claim_inheritance(ref self: TContractState, plan_id: u256, claim_code: ByteArray);
+
+    // ================ CLAIM CODE FUNCTIONS ================
+
+    /// @notice Stores claim code hash for a beneficiary (called by backend)
+    /// @param plan_id ID of the plan
+    /// @param beneficiary Beneficiary address
+    /// @param code_hash Hash of the claim code
+    /// @param expires_in Expiration time in seconds
+    fn store_claim_code_hash(
+        ref self: TContractState,
+        plan_id: u256,
+        beneficiary: ContractAddress,
+        code_hash: ByteArray,
+        expires_in: u64,
+    );
+
+    // ================ INACTIVITY MONITORING ================
+
+    /// @notice Creates an inactivity monitor for a wallet
+    /// @param wallet_address Wallet to monitor
+    /// @param threshold Inactivity threshold in seconds
+    /// @param beneficiary_email_hash Hash of beneficiary email
+    /// @param plan_id Associated plan ID
+    fn create_inactivity_monitor(
+        ref self: TContractState,
+        wallet_address: ContractAddress,
+        threshold: u64,
+        beneficiary_email_hash: ByteArray,
+        plan_id: u256,
+    );
+
+    /// @notice Updates wallet activity timestamp
+    /// @param wallet_address Wallet address
+    fn update_wallet_activity(ref self: TContractState, wallet_address: ContractAddress);
+
+    /// @notice Checks inactivity status for a plan
+    /// @param plan_id ID of the plan
+    /// @return Whether inactivity has been triggered
+    fn check_inactivity_status(self: @TContractState, plan_id: u256) -> bool;
+
+    // ================ ESCROW FUNCTIONS ================
+
+    /// @notice Locks assets in escrow (called by backend after validation)
+    /// @param escrow_id ID of the escrow account
+    /// @param fees Escrow fees
+    /// @param tax_liability Tax liability amount
+    fn lock_assets_in_escrow(
+        ref self: TContractState, escrow_id: u256, fees: u256, tax_liability: u256,
+    );
+
+    /// @notice Releases assets from escrow to beneficiary
+    /// @param escrow_id ID of the escrow account
+    /// @param beneficiary Beneficiary address
+    /// @param release_reason Reason for release
+    fn release_assets_from_escrow(
+        ref self: TContractState,
+        escrow_id: u256,
+        beneficiary: ContractAddress,
+        release_reason: ByteArray,
+    );
+
+    // ================ KYC FUNCTIONS ================
+
+    /// @notice Uploads KYC data for asset owner or beneficiary
+    /// @param kyc_hash Hash of the KYC document
+    /// @param user_type 0: Asset Owner, 1: Beneficiary, 2: Guardian, 3: Admin, 4: Emergency Contact
+    fn upload_kyc(ref self: TContractState, kyc_hash: ByteArray, user_type: u8);
+
+    /// @notice Approves KYC data (admin only)
+    /// @param user_address Address of the user whose KYC to approve
+    /// @param approval_notes Notes about the approval
+    fn approve_kyc(
+        ref self: TContractState, user_address: ContractAddress, approval_notes: ByteArray,
+    );
+
+    /// @notice Rejects KYC data (admin only)
+    /// @param user_address Address of the user whose KYC to reject
+    /// @param rejection_reason Reason for rejection
+    fn reject_kyc(
+        ref self: TContractState, user_address: ContractAddress, rejection_reason: ByteArray,
+    );
 
     // ================ SWAP FUNCTIONS ================
 
-    /// @notice Swaps tokens (standalone function)
+    /// @notice Creates a swap request for inheritance plans
+    /// @param plan_id ID of the inheritance plan
     /// @param from_token Source token address
     /// @param to_token Target token address
     /// @param amount Amount to swap
     /// @param slippage_tolerance Slippage tolerance in basis points
-    fn swap_tokens(
+    fn create_swap_request(
         ref self: TContractState,
+        plan_id: u256,
         from_token: ContractAddress,
         to_token: ContractAddress,
         amount: u256,
         slippage_tolerance: u256,
     );
 
-    /// @notice Creates a swap request for inheritance plans
-    /// @param plan_id ID of the inheritance plan
-    /// @param target_token Target token address for conversion
-    fn create_swap_request(ref self: TContractState, plan_id: u256, target_token: ContractAddress);
+    /// @notice Executes a swap request
+    /// @param swap_id ID of the swap request
+    fn execute_swap(ref self: TContractState, swap_id: u256);
 
-    // ================ KYC FUNCTIONS ================
-
-    /// @notice Uploads KYC data for asset owner or beneficiary
-    /// @param kyc_hash Hash of the KYC document
-    /// @param user_type 0: Asset Owner, 1: Beneficiary
-    fn upload_kyc(ref self: TContractState, kyc_hash: ByteArray, user_type: u8);
-
-    /// @notice Approves KYC data (admin only)
-    /// @param user_address Address of the user whose KYC to approve
-    fn approve_kyc(ref self: TContractState, user_address: ContractAddress);
-
-    /// @notice Rejects KYC data (admin only)
-    /// @param user_address Address of the user whose KYC to reject
-    fn reject_kyc(ref self: TContractState, user_address: ContractAddress);
-
-    // ================ MONITORING FUNCTIONS ================
+    // ================ QUERY FUNCTIONS ================
 
     /// @notice Gets a single inheritance plan
     /// @param plan_id ID of the plan
     fn get_inheritance_plan(self: @TContractState, plan_id: u256) -> InheritancePlan;
 
-    /// @notice Gets all plans created by a specific user
-    /// @param user_address Address of the user
-    fn get_user_plans(
-        self: @TContractState, user_address: ContractAddress,
-    ) -> Array<InheritancePlan>;
-
-    /// @notice Gets all assets claimed by a specific user
-    /// @param user_address Address of the user
-    fn get_user_claimed_assets(
-        self: @TContractState, user_address: ContractAddress,
-    ) -> Array<InheritancePlan>;
-
-    /// @notice Gets all inheritance plans (admin only)
-    fn get_all_plans(self: @TContractState) -> Array<InheritancePlan>;
-
-    /// @notice Gets all pending KYC requests (admin only)
-    fn get_pending_kyc_requests(self: @TContractState) -> Array<KYCData>;
-
-    /// @notice Gets all swap requests (admin only)
-    fn get_all_swap_requests(self: @TContractState) -> Array<SwapRequest>;
-
-    // ================ INACTIVITY MONITORING ================
-
-    /// @notice Triggers inactivity check for a specific plan
-    /// @param plan_id ID of the plan to check
-    fn check_inactivity_trigger(ref self: TContractState, plan_id: u256);
-
-    /// @notice Sets inactivity threshold for a plan
+    /// @notice Gets all beneficiaries for a plan
     /// @param plan_id ID of the plan
-    /// @param threshold Inactivity threshold in seconds
-    fn set_inactivity_threshold(ref self: TContractState, plan_id: u256, threshold: u64);
+    fn get_beneficiaries(self: @TContractState, plan_id: u256) -> Array<Beneficiary>;
+
+    /// @notice Gets escrow details for a plan
+    /// @param plan_id ID of the plan
+    fn get_escrow_details(self: @TContractState, plan_id: u256) -> EscrowAccount;
+
+    /// @notice Gets claim code details
+    /// @param code_hash Hash of the claim code
+    fn get_claim_code(self: @TContractState, code_hash: ByteArray) -> ClaimCode;
+
+    /// @notice Gets inactivity monitor for a wallet
+    /// @param wallet_address Wallet address
+    fn get_inactivity_monitor(
+        self: @TContractState, wallet_address: ContractAddress,
+    ) -> InactivityMonitor;
+
+    /// @notice Gets total plan count
+    fn get_plan_count(self: @TContractState) -> u256;
+
+    /// @notice Gets total escrow count
+    fn get_escrow_count(self: @TContractState) -> u256;
+
+    /// @notice Gets pending KYC count
+    fn get_pending_kyc_count(self: @TContractState) -> u256;
 
     // ================ ADMIN FUNCTIONS ================
 
@@ -132,16 +212,54 @@ pub trait IInheritX<TContractState> {
     /// @notice Unpauses the contract
     fn unpause(ref self: TContractState);
 
-    /// @notice Sets the admin address
-    /// @param new_admin New admin address
-    fn set_admin(ref self: TContractState, new_admin: ContractAddress);
+    /// @notice Freezes a wallet due to security concerns
+    /// @param wallet Wallet address to freeze
+    /// @param reason Reason for freezing
+    fn freeze_wallet(ref self: TContractState, wallet: ContractAddress, reason: ByteArray);
 
-    /// @notice Sets the DEX router address
-    /// @param dex_router New DEX router address
-    fn set_dex_router(ref self: TContractState, dex_router: ContractAddress);
+    /// @notice Unfreezes a previously frozen wallet
+    /// @param wallet Wallet address to unfreeze
+    /// @param reason Reason for unfreezing
+    fn unfreeze_wallet(ref self: TContractState, wallet: ContractAddress, reason: ByteArray);
+
+    /// @notice Blacklists a wallet due to severe violations
+    /// @param wallet Wallet address to blacklist
+    /// @param reason Reason for blacklisting
+    fn blacklist_wallet(ref self: TContractState, wallet: ContractAddress, reason: ByteArray);
+
+    /// @notice Removes a wallet from blacklist
+    /// @param wallet Wallet address to remove from blacklist
+    /// @param reason Reason for removal
+    fn remove_from_blacklist(ref self: TContractState, wallet: ContractAddress, reason: ByteArray);
+
+    /// @notice Updates security settings
+    /// @param max_beneficiaries Maximum number of beneficiaries per plan
+    /// @param min_timeframe Minimum timeframe in seconds
+    /// @param max_timeframe Maximum timeframe in seconds
+    /// @param require_guardian Whether to require guardian for plans
+    /// @param allow_early_execution Whether to allow early execution
+    /// @param max_asset_amount Maximum asset amount per plan
+    /// @param require_multi_sig Whether to require multi-signature
+    /// @param multi_sig_threshold Multi-signature threshold
+    /// @param emergency_timeout Emergency timeout in seconds
+    fn update_security_settings(
+        ref self: TContractState,
+        max_beneficiaries: u8,
+        min_timeframe: u64,
+        max_timeframe: u64,
+        require_guardian: bool,
+        allow_early_execution: bool,
+        max_asset_amount: u256,
+        require_multi_sig: bool,
+        multi_sig_threshold: u8,
+        emergency_timeout: u64,
+    );
 
     /// @notice Emergency withdrawal function
     /// @param token_address Token address to withdraw
     /// @param amount Amount to withdraw
     fn emergency_withdraw(ref self: TContractState, token_address: ContractAddress, amount: u256);
+
+    /// @notice Gets current security settings
+    fn get_security_settings(self: @TContractState) -> SecuritySettings;
 }
