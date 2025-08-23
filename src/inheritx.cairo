@@ -80,6 +80,10 @@ pub mod InheritX {
         usdc_token: ContractAddress,
         // Security settings
         security_settings: SecuritySettings,
+        // Wallet freezing and blacklisting
+        frozen_wallets: Map<ContractAddress, bool>, // wallet -> is_frozen
+        freeze_reasons: Map<ContractAddress, FreezeInfo>, // wallet -> freeze_info
+        blacklisted_wallets: Map<ContractAddress, bool> // wallet -> is_blacklisted
     }
 
     #[event]
@@ -91,6 +95,10 @@ pub mod InheritX {
         PausableEvent: PausableComponent::Event,
         // Custom events
         SecuritySettingsUpdated: SecuritySettingsUpdated,
+        WalletFrozen: WalletFrozen,
+        WalletUnfrozen: WalletUnfrozen,
+        WalletBlacklisted: WalletBlacklisted,
+        WalletRemovedFromBlacklist: WalletRemovedFromBlacklist,
     }
 
     #[constructor]
@@ -166,6 +174,16 @@ pub mod InheritX {
         fn assert_plan_not_claimed(self: @ContractState, plan_id: u256) {
             let plan = self.inheritance_plans.read(plan_id);
             assert(!plan.is_claimed, ERR_PLAN_ALREADY_CLAIMED);
+        }
+
+        fn assert_wallet_not_frozen(self: @ContractState, wallet: ContractAddress) {
+            let is_frozen = self.frozen_wallets.read(wallet);
+            assert(!is_frozen, ERR_WALLET_ALREADY_FROZEN);
+        }
+
+        fn assert_wallet_not_blacklisted(self: @ContractState, wallet: ContractAddress) {
+            let is_blacklisted = self.blacklisted_wallets.read(wallet);
+            assert(!is_blacklisted, ERR_WALLET_ALREADY_BLACKLISTED);
         }
 
         fn u8_to_asset_type(asset_type: u8) -> AssetType {
@@ -857,13 +875,22 @@ pub mod InheritX {
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
-            // In a real implementation, this would:
-            // 1. Add wallet to frozen wallets storage map
-            // 2. Emit freeze event
-            // 3. Log the action
+            // Check if wallet is already frozen
+            let is_frozen = self.frozen_wallets.read(wallet);
+            assert(!is_frozen, ERR_WALLET_ALREADY_FROZEN);
 
-            // For now, we'll implement basic validation and update plan status
-            // to indicate the wallet is frozen
+            // Freeze the wallet
+            self.frozen_wallets.write(wallet, true);
+
+            // Add freeze reason and timestamp
+            let freeze_info = FreezeInfo {
+                reason: reason.clone(),
+                frozen_at: starknet::get_block_timestamp(),
+                frozen_by: starknet::get_caller_address(),
+            };
+            self.freeze_reasons.write(wallet, freeze_info);
+
+            // Pause all plans owned by this wallet
             let user_plan_count = self.user_plan_count.read(wallet);
             let mut i: u256 = 0;
 
@@ -879,6 +906,18 @@ pub mod InheritX {
 
                 i += 1;
             }
+
+            // Emit freeze event
+            self
+                .emit(
+                    WalletFrozen {
+                        wallet_address: wallet,
+                        frozen_at: starknet::get_block_timestamp(),
+                        frozen_by: starknet::get_caller_address(),
+                        freeze_reason: reason,
+                        freeze_duration: 0 // Indefinite freeze (0 means no duration limit)
+                    },
+                );
         }
 
         fn unfreeze_wallet(ref self: ContractState, wallet: ContractAddress, reason: ByteArray) {
@@ -889,7 +928,20 @@ pub mod InheritX {
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
-            // Unfreeze wallet by reactivating paused plans
+            // Check if wallet is actually frozen
+            let is_frozen = self.frozen_wallets.read(wallet);
+            assert(is_frozen, ERR_WALLET_NOT_FROZEN);
+
+            // Unfreeze the wallet
+            self.frozen_wallets.write(wallet, false);
+
+            // Clear freeze reason
+            let empty_freeze_info = FreezeInfo {
+                reason: "", frozen_at: 0, frozen_by: contract_address_const::<0>(),
+            };
+            self.freeze_reasons.write(wallet, empty_freeze_info);
+
+            // Reactivate paused plans owned by this wallet
             let user_plan_count = self.user_plan_count.read(wallet);
             let mut i: u256 = 0;
 
@@ -905,6 +957,17 @@ pub mod InheritX {
 
                 i += 1;
             }
+
+            // Emit unfreeze event
+            self
+                .emit(
+                    WalletUnfrozen {
+                        wallet_address: wallet,
+                        unfrozen_at: starknet::get_block_timestamp(),
+                        unfrozen_by: starknet::get_caller_address(),
+                        unfreeze_reason: reason,
+                    },
+                );
         }
 
         fn blacklist_wallet(ref self: ContractState, wallet: ContractAddress, reason: ByteArray) {
@@ -915,7 +978,14 @@ pub mod InheritX {
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
-            // Blacklist wallet by cancelling all their plans
+            // Check if wallet is already blacklisted
+            let is_blacklisted = self.blacklisted_wallets.read(wallet);
+            assert(!is_blacklisted, ERR_WALLET_ALREADY_BLACKLISTED);
+
+            // Blacklist the wallet
+            self.blacklisted_wallets.write(wallet, true);
+
+            // Cancel all active plans owned by this wallet
             let user_plan_count = self.user_plan_count.read(wallet);
             let mut i: u256 = 0;
 
@@ -931,6 +1001,17 @@ pub mod InheritX {
 
                 i += 1;
             }
+
+            // Emit blacklist event
+            self
+                .emit(
+                    WalletBlacklisted {
+                        wallet_address: wallet,
+                        blacklisted_at: starknet::get_block_timestamp(),
+                        blacklisted_by: starknet::get_caller_address(),
+                        reason: reason,
+                    },
+                );
         }
 
         fn remove_from_blacklist(
@@ -943,7 +1024,14 @@ pub mod InheritX {
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
-            // Remove from blacklist by reactivating cancelled plans
+            // Check if wallet is actually blacklisted
+            let is_blacklisted = self.blacklisted_wallets.read(wallet);
+            assert(is_blacklisted, ERR_WALLET_NOT_BLACKLISTED);
+
+            // Remove from blacklist
+            self.blacklisted_wallets.write(wallet, false);
+
+            // Reactivate cancelled plans (note: this is optional behavior)
             let user_plan_count = self.user_plan_count.read(wallet);
             let mut i: u256 = 0;
 
@@ -959,6 +1047,17 @@ pub mod InheritX {
 
                 i += 1;
             }
+
+            // Emit removal from blacklist event
+            self
+                .emit(
+                    WalletRemovedFromBlacklist {
+                        wallet_address: wallet,
+                        removed_at: starknet::get_block_timestamp(),
+                        removed_by: starknet::get_caller_address(),
+                        reason: reason,
+                    },
+                );
         }
 
         fn update_security_settings(

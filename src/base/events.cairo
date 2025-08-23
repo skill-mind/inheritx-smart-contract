@@ -357,6 +357,22 @@ pub struct WalletUnfrozen {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct WalletBlacklisted {
+    pub wallet_address: ContractAddress,
+    pub blacklisted_at: u64,
+    pub blacklisted_by: ContractAddress,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct WalletRemovedFromBlacklist {
+    pub wallet_address: ContractAddress,
+    pub removed_at: u64,
+    pub removed_by: ContractAddress,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct SecuritySettingsUpdated {
     pub updated_at: u64,
     pub updated_by: ContractAddress,

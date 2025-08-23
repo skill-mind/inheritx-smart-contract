@@ -72,3 +72,9 @@ pub const ERR_MAX_BENEFICIARIES_REACHED: felt252 = 'Max beneficiaries reached';
 pub const ERR_BENEFICIARY_ALREADY_EXISTS: felt252 = 'Beneficiary already exists';
 pub const ERR_NFT_NOT_OWNED: felt252 = 'NFT not owned by contract';
 pub const ERR_INVALID_NFT_TOKEN: felt252 = 'Invalid NFT token';
+
+// ================ WALLET SECURITY ERRORS ================
+pub const ERR_WALLET_ALREADY_FROZEN: felt252 = 'Wallet already frozen';
+pub const ERR_WALLET_NOT_FROZEN: felt252 = 'Wallet not frozen';
+pub const ERR_WALLET_ALREADY_BLACKLISTED: felt252 = 'Wallet already blacklisted';
+pub const ERR_WALLET_NOT_BLACKLISTED: felt252 = 'Wallet not blacklisted';

@@ -346,3 +346,11 @@ pub struct AuditLog {
     pub block_number: u64,
     pub transaction_hash: ByteArray,
 }
+
+// Freeze Info type
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct FreezeInfo {
+    pub reason: ByteArray,
+    pub frozen_at: u64,
+    pub frozen_by: ContractAddress,
+}
