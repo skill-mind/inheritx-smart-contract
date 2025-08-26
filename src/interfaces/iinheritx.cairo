@@ -1,7 +1,8 @@
 use core::byte_array::ByteArray;
 use starknet::{ClassHash, ContractAddress};
 use crate::base::types::{
-    Beneficiary, ClaimCode, EscrowAccount, InactivityMonitor, InheritancePlan, SecuritySettings,
+    AssetAllocation, Beneficiary, ClaimCode, DisbursementBeneficiary, EscrowAccount,
+    InactivityMonitor, InheritancePlan, MonthlyDisbursementPlan, SecuritySettings,
 };
 
 #[starknet::interface]
@@ -262,4 +263,69 @@ pub trait IInheritX<TContractState> {
 
     /// @notice Gets current security settings
     fn get_security_settings(self: @TContractState) -> SecuritySettings;
+
+    // ================ PLAN CREATION FLOW FUNCTIONS ================
+
+    // Step 1: Create basic plan info
+    fn create_plan_basic_info(
+        ref self: TContractState,
+        plan_name: ByteArray,
+        plan_description: ByteArray,
+        owner_email_hash: ByteArray,
+        initial_beneficiary: ContractAddress,
+        initial_beneficiary_email: ByteArray,
+    ) -> u256;
+
+    // Step 2: Set asset allocation
+    fn set_asset_allocation(
+        ref self: TContractState,
+        basic_info_id: u256,
+        beneficiaries: Array<Beneficiary>,
+        asset_allocations: Array<AssetAllocation>,
+    );
+
+    // Step 3: Mark rules and conditions set (Backend validates)
+    fn mark_rules_conditions_set(ref self: TContractState, basic_info_id: u256);
+
+    // Step 4: Mark verification completed (Backend validates)
+    fn mark_verification_completed(ref self: TContractState, basic_info_id: u256);
+
+    // Step 5: Mark preview ready (Backend generates preview)
+    fn mark_preview_ready(ref self: TContractState, basic_info_id: u256);
+
+    // Step 6: Activate plan
+    fn activate_inheritance_plan(
+        ref self: TContractState, basic_info_id: u256, activation_confirmation: ByteArray,
+    );
+
+    // ================ BASIC QUERIES ================
+
+    // Get beneficiary count (Backend fetches actual beneficiaries)
+    fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
+
+    // ================ MONTHLY DISBURSEMENT FUNCTIONS ================
+
+    // Create monthly disbursement plan
+    fn create_monthly_disbursement_plan(
+        ref self: TContractState,
+        total_amount: u256,
+        monthly_amount: u256,
+        start_month: u64,
+        end_month: u64,
+        beneficiaries: Array<DisbursementBeneficiary>,
+    ) -> u256;
+
+    // Execute monthly disbursement
+    fn execute_monthly_disbursement(ref self: TContractState, plan_id: u256);
+
+    // Pause monthly disbursement plan
+    fn pause_monthly_disbursement(ref self: TContractState, plan_id: u256, reason: ByteArray);
+
+    // Resume monthly disbursement plan
+    fn resume_monthly_disbursement(ref self: TContractState, plan_id: u256);
+
+    // Get monthly disbursement plan status
+    fn get_monthly_disbursement_status(
+        self: @TContractState, plan_id: u256,
+    ) -> MonthlyDisbursementPlan;
 }

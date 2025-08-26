@@ -9,68 +9,542 @@ The InheritX indexer serves as a critical bridge in the hybrid architecture, mon
 
 #### Event Types to Monitor
 ```cairo
-// Inheritance Plan Events
+// ================ INHERITANCE PLAN EVENTS ================
 event InheritancePlanCreated {
     plan_id: u256,
     owner: ContractAddress,
-    asset_type: AssetType,
-    asset_amount: u256,
+    asset_type: u8,
+    amount: u256,
     timeframe: u64,
-    created_at: u64
+    beneficiary_count: u8,
+    created_at: u64,
+    security_level: u8,
+    auto_execute: bool
+}
+
+event InheritancePlanUpdated {
+    plan_id: u256,
+    updated_at: u64,
+    updated_by: ContractAddress,
+    changes: ByteArray
 }
 
 event InheritancePlanExecuted {
     plan_id: u256,
     executed_at: u64,
-    executed_by: ContractAddress
+    executed_by: ContractAddress,
+    execution_reason: ByteArray
 }
 
-event InheritanceClaimed {
+event InheritancePlanCancelled {
     plan_id: u256,
-    claimed_by: ContractAddress,
+    cancelled_at: u64,
+    cancelled_by: ContractAddress,
+    cancellation_reason: ByteArray
+}
+
+event InheritancePlanPaused {
+    plan_id: u256,
+    paused_at: u64,
+    paused_by: ContractAddress,
+    pause_reason: ByteArray
+}
+
+event InheritancePlanExpired {
+    plan_id: u256,
+    expired_at: u64,
+    expiry_reason: ByteArray
+}
+
+// ================ BENEFICIARY EVENTS ================
+event BeneficiaryAdded {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    percentage: u8,
+    added_at: u64,
+    added_by: ContractAddress,
+    email_hash: ByteArray,
+    age: u8,
+    is_minor: bool
+}
+
+event BeneficiaryRemoved {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    removed_at: u64,
+    removed_by: ContractAddress,
+    removal_reason: ByteArray
+}
+
+event BeneficiaryUpdated {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    updated_at: u64,
+    updated_by: ContractAddress,
+    changes: ByteArray
+}
+
+event BeneficiaryClaimed {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    amount: u256,
     claimed_at: u64,
-    claim_code: ByteArray
+    claim_code: ByteArray,
+    tax_amount: u256,
+    net_amount: u256
 }
 
-event PlanOverridden {
+// ================ CLAIM CODE EVENTS ================
+event ClaimCodeGenerated {
     plan_id: u256,
-    new_timeframe: u64,
-    overridden_at: u64
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    generated_at: u64,
+    expires_at: u64,
+    generated_by: ContractAddress
 }
 
-// KYC Events
+event ClaimCodeUsed {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    used_at: u64,
+    used_by: ContractAddress
+}
+
+event ClaimCodeRevoked {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    revoked_at: u64,
+    revoked_by: ContractAddress,
+    revocation_reason: ByteArray
+}
+
+event ClaimCodeExpired {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    expired_at: u64
+}
+
+// ================ ESCROW EVENTS ================
+event EscrowCreated {
+    escrow_id: u256,
+    plan_id: u256,
+    asset_type: u8,
+    amount: u256,
+    created_at: u64,
+    created_by: ContractAddress
+}
+
+event AssetsLocked {
+    escrow_id: u256,
+    plan_id: u256,
+    asset_type: u8,
+    amount: u256,
+    locked_at: u64,
+    locked_by: ContractAddress,
+    fees: u256,
+    tax_liability: u256
+}
+
+event AssetsReleased {
+    escrow_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    amount: u256,
+    released_at: u64,
+    released_by: ContractAddress,
+    release_reason: ByteArray
+}
+
+event EscrowValuationUpdated {
+    escrow_id: u256,
+    new_value: u256,
+    new_price: u256,
+    updated_at: u64,
+    updated_by: ContractAddress,
+    confidence: u8
+}
+
+// ================ INACTIVITY EVENTS ================
+event InactivityMonitorCreated {
+    wallet_address: ContractAddress,
+    threshold: u64,
+    beneficiary_email_hash: ByteArray,
+    created_at: u64,
+    created_by: ContractAddress,
+    plan_id: u256
+}
+
+event InactivityTriggered {
+    wallet_address: ContractAddress,
+    threshold: u64,
+    triggered_at: u64,
+    beneficiary_email_hash: ByteArray,
+    plan_id: u256,
+    last_activity: u64
+}
+
+event WalletActivityUpdated {
+    wallet_address: ContractAddress,
+    last_activity: u64,
+    updated_at: u64,
+    updated_by: ContractAddress
+}
+
+event InactivityNotificationSent {
+    wallet_address: ContractAddress,
+    beneficiary_email_hash: ByteArray,
+    sent_at: u64,
+    notification_type: ByteArray
+}
+
+// ================ KYC EVENTS ================
 event KYCUploaded {
     user_address: ContractAddress,
     kyc_hash: ByteArray,
-    user_type: UserType,
-    uploaded_at: u64
+    user_type: u8,
+    uploaded_at: u64,
+    documents_count: u8,
+    verification_score: u8,
+    fraud_risk: u8
 }
 
 event KYCApproved {
     user_address: ContractAddress,
     approved_by: ContractAddress,
-    approved_at: u64
+    approved_at: u64,
+    approval_notes: ByteArray,
+    final_verification_score: u8
 }
 
 event KYCRejected {
     user_address: ContractAddress,
     rejected_by: ContractAddress,
-    rejected_at: u64
+    rejected_at: u64,
+    rejection_reason: ByteArray,
+    fraud_risk_score: u8
 }
 
-// Swap Events
+event KYCExpired {
+    user_address: ContractAddress,
+    expired_at: u64,
+    expiry_reason: ByteArray
+}
+
+// ================ SWAP EVENTS ================
 event SwapRequestCreated {
     swap_id: u256,
     plan_id: u256,
     from_token: ContractAddress,
     to_token: ContractAddress,
-    amount: u256
+    amount: u256,
+    slippage_tolerance: u256,
+    created_at: u64,
+    created_by: ContractAddress
 }
 
 event SwapExecuted {
     swap_id: u256,
     executed_at: u64,
-    execution_price: u256
+    execution_price: u256,
+    gas_used: u256,
+    executed_by: ContractAddress
+}
+
+event SwapFailed {
+    swap_id: u256,
+    failed_at: u64,
+    failed_reason: ByteArray,
+    gas_used: u256
+}
+
+event SwapExpired {
+    swap_id: u256,
+    expired_at: u64,
+    expiry_reason: ByteArray
+}
+
+// ================ TIME TRIGGER EVENTS ================
+event TimeTriggerCreated {
+    trigger_id: u256,
+    plan_id: u256,
+    trigger_type: u8,
+    trigger_time: u64,
+    created_at: u64,
+    created_by: ContractAddress
+}
+
+event TimeTriggerExecuted {
+    trigger_id: u256,
+    plan_id: u256,
+    executed_at: u64,
+    executed_by: ContractAddress,
+    execution_result: ByteArray
+}
+
+// ================ SECURITY EVENTS ================
+event SecurityViolation {
+    wallet_address: ContractAddress,
+    violation_type: u8,
+    severity: u8,
+    detected_at: u64,
+    detected_by: ContractAddress,
+    description: ByteArray
+}
+
+event SuspiciousActivityReported {
+    wallet_address: ContractAddress,
+    activity_type: u8,
+    severity: u8,
+    reported_at: u64,
+    reported_by: ContractAddress,
+    description: ByteArray
+}
+
+event WalletFrozen {
+    wallet_address: ContractAddress,
+    frozen_at: u64,
+    frozen_by: ContractAddress,
+    freeze_reason: ByteArray,
+    freeze_duration: u64
+}
+
+event WalletUnfrozen {
+    wallet_address: ContractAddress,
+    unfrozen_at: u64,
+    unfrozen_by: ContractAddress,
+    unfreeze_reason: ByteArray
+}
+
+event WalletBlacklisted {
+    wallet_address: ContractAddress,
+    blacklisted_at: u64,
+    blacklisted_by: ContractAddress,
+    reason: ByteArray
+}
+
+event WalletRemovedFromBlacklist {
+    wallet_address: ContractAddress,
+    removed_at: u64,
+    removed_by: ContractAddress,
+    reason: ByteArray
+}
+
+event SecuritySettingsUpdated {
+    updated_at: u64,
+    updated_by: ContractAddress,
+    max_beneficiaries: u8,
+    min_timeframe: u64,
+    max_timeframe: u64,
+    require_guardian: bool,
+    allow_early_execution: bool,
+    max_asset_amount: u256,
+    require_multi_sig: bool,
+    multi_sig_threshold: u8,
+    emergency_timeout: u64
+}
+
+// ================ ROLE AND PERMISSION EVENTS ================
+event RoleAssigned {
+    user_address: ContractAddress,
+    plan_id: u256,
+    role: u8,
+    assigned_at: u64,
+    assigned_by: ContractAddress
+}
+
+event RoleRevoked {
+    user_address: ContractAddress,
+    plan_id: u256,
+    role: u8,
+    revoked_at: u64,
+    revoked_by: ContractAddress,
+    revocation_reason: ByteArray
+}
+
+// ================ AUDIT EVENTS ================
+event AuditLogCreated {
+    log_id: u256,
+    user_address: ContractAddress,
+    action: ByteArray,
+    timestamp: u64,
+    ipfs_hash: ByteArray,
+    block_number: u64,
+    transaction_hash: ByteArray
+}
+
+// ================ EMERGENCY EVENTS ================
+event EmergencyDeclared {
+    plan_id: u256,
+    emergency_level: u8,
+    declared_at: u64,
+    declared_by: ContractAddress,
+    emergency_reason: ByteArray,
+    timeout_duration: u64
+}
+
+event EmergencyResolved {
+    plan_id: u256,
+    resolved_at: u64,
+    resolved_by: ContractAddress,
+    resolution_notes: ByteArray
+}
+
+// ================ PLAN OVERRIDE EVENTS ================
+event PlanOverrideRequested {
+    plan_id: u256,
+    requester: ContractAddress,
+    requested_at: u64,
+    emergency_level: u8,
+    reason: ByteArray
+}
+
+event PlanOverrideApproved {
+    plan_id: u256,
+    approved_at: u64,
+    approved_by: ContractAddress,
+    approval_notes: ByteArray
+}
+
+event PlanOverrideRejected {
+    plan_id: u256,
+    rejected_at: u64,
+    rejected_by: ContractAddress,
+    rejection_reason: ByteArray
+}
+
+// ================ PLAN CREATION FLOW EVENTS ================
+event BasicPlanInfoCreated {
+    basic_info_id: u256,
+    owner: ContractAddress,
+    plan_name: ByteArray,
+    created_at: u64
+}
+
+event AssetAllocationSet {
+    plan_id: u256,
+    beneficiary_count: u8,
+    total_percentage: u8,
+    set_at: u64
+}
+
+event RulesConditionsSet {
+    plan_id: u256,
+    guardian: ContractAddress,
+    auto_execute: bool,
+    set_at: u64
+}
+
+event VerificationCompleted {
+    plan_id: u256,
+    kyc_status: KYCStatus,
+    compliance_status: ComplianceStatus,
+    verified_at: u64
+}
+
+event PlanPreviewGenerated {
+    plan_id: u256,
+    validation_status: ValidationStatus,
+    activation_ready: bool,
+    generated_at: u64
+}
+
+event PlanActivated {
+    plan_id: u256,
+    activated_by: ContractAddress,
+    activated_at: u64
+}
+
+event PlanCreationStepCompleted {
+    plan_id: u256,
+    step: PlanCreationStatus,
+    completed_at: u64,
+    completed_by: ContractAddress
+}
+
+// ================ ACTIVITY LOGGING EVENTS ================
+event ActivityLogged {
+    activity_id: u256,
+    plan_id: u256,
+    user_address: ContractAddress,
+    activity_type: ActivityType,
+    timestamp: u64
+}
+
+event PlanStatusUpdated {
+    plan_id: u256,
+    old_status: PlanStatus,
+    new_status: PlanStatus,
+    updated_by: ContractAddress,
+    updated_at: u64,
+    reason: ByteArray
+}
+
+event BeneficiaryModified {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    modification_type: ByteArray,
+    modified_at: u64,
+    modified_by: ContractAddress
+}
+
+// ================ MONTHLY DISBURSEMENT EVENTS ================
+event MonthlyDisbursementPlanCreated {
+    plan_id: u256,
+    owner: ContractAddress,
+    total_amount: u256,
+    monthly_amount: u256,
+    start_month: u64,
+    end_month: u64,
+    created_at: u64
+}
+
+event MonthlyDisbursementExecuted {
+    disbursement_id: u256,
+    plan_id: u256,
+    month: u64,
+    amount: u256,
+    beneficiaries_count: u8,
+    executed_at: u64,
+    transaction_hash: ByteArray
+}
+
+event MonthlyDisbursementPaused {
+    plan_id: u256,
+    paused_at: u64,
+    paused_by: ContractAddress,
+    reason: ByteArray
+}
+
+event MonthlyDisbursementResumed {
+    plan_id: u256,
+    resumed_at: u64,
+    resumed_by: ContractAddress
+}
+
+event MonthlyDisbursementCancelled {
+    plan_id: u256,
+    cancelled_at: u64,
+    cancelled_by: ContractAddress,
+    reason: ByteArray
+}
+
+event DisbursementBeneficiaryAdded {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    percentage: u8,
+    monthly_amount: u256,
+    added_at: u64
+}
+
+event DisbursementBeneficiaryRemoved {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    removed_at: u64,
+    removed_by: ContractAddress
 }
 ```
 
@@ -237,10 +711,205 @@ CREATE TABLE inheritance_plans (
     claimed_at BIGINT,
     claimed_by VARCHAR(42),
     ipfs_hash VARCHAR(255),
+    security_level INTEGER DEFAULT 3,
+    auto_execute BOOLEAN DEFAULT FALSE,
+    beneficiary_count INTEGER DEFAULT 0,
     INDEX idx_plan_id (plan_id),
     INDEX idx_owner (owner_address),
     INDEX idx_status (status),
     INDEX idx_becomes_active (becomes_active_at)
+);
+
+-- Plan creation flow tracking table
+CREATE TABLE plan_creation_flow (
+    id SERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL,
+    basic_info_id BIGINT,
+    creation_step VARCHAR(50) NOT NULL,
+    step_data JSONB,
+    step_completed_at BIGINT,
+    validation_status VARCHAR(20) DEFAULT 'pending',
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_creation_step (creation_step),
+    INDEX idx_validation_status (validation_status)
+);
+
+-- Monthly disbursement plans table
+CREATE TABLE monthly_disbursement_plans (
+    id SERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL,
+    owner_address VARCHAR(42) NOT NULL,
+    total_amount NUMERIC(78,0) NOT NULL,
+    monthly_amount NUMERIC(78,0) NOT NULL,
+    start_month BIGINT NOT NULL,
+    end_month BIGINT NOT NULL,
+    total_months INTEGER NOT NULL,
+    completed_months INTEGER DEFAULT 0,
+    next_disbursement_date BIGINT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    beneficiaries_count INTEGER DEFAULT 0,
+    disbursement_status VARCHAR(20) DEFAULT 'pending',
+    created_at BIGINT NOT NULL,
+    last_activity BIGINT NOT NULL,
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_owner (owner_address),
+    INDEX idx_disbursement_status (disbursement_status),
+    INDEX idx_next_disbursement_date (next_disbursement_date)
+);
+
+-- Monthly disbursements execution history
+CREATE TABLE monthly_disbursements (
+    id SERIAL PRIMARY KEY,
+    disbursement_id BIGINT NOT NULL,
+    plan_id BIGINT NOT NULL,
+    month BIGINT NOT NULL,
+    amount NUMERIC(78,0) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    scheduled_date BIGINT NOT NULL,
+    executed_date BIGINT,
+    beneficiaries_count INTEGER DEFAULT 0,
+    transaction_hash VARCHAR(66),
+    created_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_disbursement_id (disbursement_id),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_month (month),
+    INDEX idx_status (status)
+);
+
+-- Disbursement beneficiaries table
+CREATE TABLE disbursement_beneficiaries (
+    id SERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL,
+    beneficiary_address VARCHAR(42) NOT NULL,
+    percentage INTEGER NOT NULL,
+    monthly_amount NUMERIC(78,0) NOT NULL,
+    total_received NUMERIC(78,0) DEFAULT 0,
+    last_disbursement BIGINT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at BIGINT NOT NULL,
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary_address (beneficiary_address),
+    INDEX idx_is_active (is_active)
+);
+
+-- Security settings table
+CREATE TABLE security_settings (
+    id SERIAL PRIMARY KEY,
+    max_beneficiaries INTEGER NOT NULL,
+    min_timeframe BIGINT NOT NULL,
+    max_timeframe BIGINT NOT NULL,
+    require_guardian BOOLEAN DEFAULT FALSE,
+    allow_early_execution BOOLEAN DEFAULT FALSE,
+    max_asset_amount NUMERIC(78,0) NOT NULL,
+    require_multi_sig BOOLEAN DEFAULT FALSE,
+    multi_sig_threshold INTEGER DEFAULT 2,
+    emergency_timeout BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    updated_by VARCHAR(42) NOT NULL,
+    INDEX idx_updated_at (updated_at)
+);
+
+-- Wallet security table
+CREATE TABLE wallet_security (
+    id SERIAL PRIMARY KEY,
+    wallet_address VARCHAR(42) NOT NULL,
+    is_frozen BOOLEAN DEFAULT FALSE,
+    is_blacklisted BOOLEAN DEFAULT FALSE,
+    freeze_reason TEXT,
+    freeze_duration BIGINT DEFAULT 0,
+    frozen_at BIGINT,
+    frozen_by VARCHAR(42),
+    blacklisted_at BIGINT,
+    blacklisted_by VARCHAR(42),
+    blacklist_reason TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_wallet_address (wallet_address),
+    INDEX idx_is_frozen (is_frozen),
+    INDEX idx_is_blacklisted (is_blacklisted)
+);
+
+-- Inactivity monitors table
+CREATE TABLE inactivity_monitors (
+    id SERIAL PRIMARY KEY,
+    wallet_address VARCHAR(42) NOT NULL,
+    threshold BIGINT NOT NULL,
+    last_activity BIGINT NOT NULL,
+    beneficiary_email_hash VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at BIGINT NOT NULL,
+    triggered_at BIGINT,
+    plan_id BIGINT NOT NULL,
+    monitoring_enabled BOOLEAN DEFAULT TRUE,
+    INDEX idx_wallet_address (wallet_address),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_is_active (is_active),
+    INDEX idx_last_activity (last_activity)
+);
+
+-- Escrow accounts table
+CREATE TABLE escrow_accounts (
+    id SERIAL PRIMARY KEY,
+    escrow_id BIGINT NOT NULL,
+    plan_id BIGINT NOT NULL,
+    asset_type VARCHAR(20) NOT NULL,
+    amount NUMERIC(78,0) NOT NULL,
+    nft_token_id BIGINT DEFAULT 0,
+    nft_contract VARCHAR(42),
+    is_locked BOOLEAN DEFAULT FALSE,
+    locked_at BIGINT,
+    beneficiary VARCHAR(42),
+    release_conditions_count INTEGER DEFAULT 0,
+    fees NUMERIC(78,0) DEFAULT 0,
+    tax_liability NUMERIC(78,0) DEFAULT 0,
+    last_valuation BIGINT DEFAULT 0,
+    valuation_price NUMERIC(78,0) DEFAULT 0,
+    created_at BIGINT NOT NULL,
+    INDEX idx_escrow_id (escrow_id),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_is_locked (is_locked)
+);
+
+-- Swap requests table
+CREATE TABLE swap_requests (
+    id SERIAL PRIMARY KEY,
+    swap_id BIGINT NOT NULL,
+    plan_id BIGINT NOT NULL,
+    from_token VARCHAR(42) NOT NULL,
+    to_token VARCHAR(42) NOT NULL,
+    amount NUMERIC(78,0) NOT NULL,
+    slippage_tolerance NUMERIC(78,0) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at BIGINT NOT NULL,
+    executed_at BIGINT,
+    execution_price NUMERIC(78,0) DEFAULT 0,
+    gas_used BIGINT DEFAULT 0,
+    failed_reason TEXT,
+    INDEX idx_swap_id (swap_id),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_status (status)
+);
+
+-- Claim codes table
+CREATE TABLE claim_codes (
+    id SERIAL PRIMARY KEY,
+    code_hash VARCHAR(255) NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    generated_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    used_at BIGINT,
+    attempts INTEGER DEFAULT 0,
+    is_revoked BOOLEAN DEFAULT FALSE,
+    revoked_at BIGINT,
+    revoked_by VARCHAR(42),
+    INDEX idx_code_hash (code_hash),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary (beneficiary),
+    INDEX idx_is_used (is_used)
 );
 
 -- KYC data table
@@ -295,11 +964,27 @@ GET /api/indexer/wallet/{address}/activity
 GET /api/indexer/plans/{planId}/status
 GET /api/indexer/kyc/{userAddress}/status
 
+// New feature endpoints
+GET /api/indexer/plans/{planId}/creation-flow
+GET /api/indexer/plans/{planId}/creation-step/{step}
+GET /api/indexer/monthly-disbursements/{planId}
+GET /api/indexer/monthly-disbursements/{planId}/executions
+GET /api/indexer/security/settings
+GET /api/indexer/security/wallet/{address}
+GET /api/indexer/inactivity-monitors/{walletAddress}
+GET /api/indexer/escrow/{escrowId}
+GET /api/indexer/swap-requests/{swapId}
+GET /api/indexer/claim-codes/{codeHash}
+
 // WebSocket endpoints
 WS /api/indexer/ws/events
 WS /api/indexer/ws/wallet-activity
 WS /api/indexer/ws/plans
 WS /api/indexer/ws/kyc
+WS /api/indexer/ws/plan-creation-flow
+WS /api/indexer/ws/monthly-disbursements
+WS /api/indexer/ws/security
+WS /api/indexer/ws/inactivity-monitors
 ```
 
 ### 5. Inactivity Detection Algorithm
@@ -610,7 +1295,33 @@ class AlertingService {
 }
 ```
 
-### 9. Security & Privacy
+### 9. Enhanced Monitoring & Analytics
+
+#### Performance Metrics
+- **Block Processing**: Process 100+ blocks per second
+- **Event Processing**: Parse 1000+ events per second
+- **Database Writes**: Handle 10,000+ writes per second
+- **Real-Time Updates**: < 100ms latency for updates
+- **Plan Creation Flow Metrics**: Step completion rates and timing
+- **Monthly Disbursement Metrics**: Execution success rates and performance
+- **Security Operation Metrics**: Response times and effectiveness
+
+#### Enhanced Usage Analytics
+- **Plan Creation Flow Analysis**: Step-by-step completion patterns, validation success rates, time per step
+- **Monthly Disbursement Patterns**: Execution frequency, success rates, beneficiary distribution patterns
+- **Security Event Analysis**: Freeze/blacklist patterns, security violation triggers, response effectiveness
+- **Inactivity Monitoring Metrics**: Trigger frequency, notification success rates, response times
+- **Escrow Management Analytics**: Lock/release patterns, fee structures, tax liability trends
+- **Swap Execution Analytics**: Success rates, gas optimization, DEX routing efficiency
+- **Claim Code Usage**: Generation patterns, usage rates, expiration management
+
+#### Cross-System Health Monitoring
+- **Blockchain Health**: Block processing rate, event processing rate, RPC latency
+- **Backend Synchronization**: API response times, database performance, external API health
+- **Data Consistency**: On-chain to off-chain sync, data consistency score, sync queue length
+- **Overall System Health**: System status, critical issues, recommendations
+
+### 10. Security & Privacy
 
 #### Data Protection
 - **Encryption**: Encrypt sensitive data at rest
@@ -624,7 +1335,7 @@ class AlertingService {
 - **Replay Protection**: Prevent duplicate event processing
 - **Signature Verification**: Validate event signatures
 
-### 10. Integration Points
+### 11. Integration Points
 
 #### Backend Integration
 - **Event Notifications**: Real-time updates to backend services
@@ -638,7 +1349,7 @@ class AlertingService {
 - **Dashboard Data**: Real-time dashboard updates
 - **Notification System**: User alerts and updates
 
-### 11. Development & Testing
+### 12. Development & Testing
 
 #### Local Development
 - **Local Blockchain**: Ganache or Hardhat for testing
@@ -652,7 +1363,7 @@ class AlertingService {
 - **Performance Tests**: Load and stress testing
 - **Security Tests**: Vulnerability assessment
 
-### 12. Deployment & Operations
+### 13. Deployment & Operations
 
 #### Rust Dependencies (Cargo.toml)
 ```toml
@@ -709,4 +1420,44 @@ tokio-tungstenite = "0.20"
 - **Log Management**: Centralized log collection
 - **Performance Monitoring**: Real-time performance tracking
 - **Backup & Recovery**: Automated backup procedures
-- **Update Management**: Seamless deployment updates 
+- **Update Management**: Seamless deployment updates
+
+## New Features Summary
+
+### 1. **Enhanced Plan Creation Flow Support**
+- **Step-by-step event monitoring** for each creation phase
+- **Real-time progress tracking** with validation status
+- **Metadata synchronization** between on-chain and off-chain systems
+- **Plan preview generation** with risk assessment data
+
+### 2. **Monthly Disbursement System Integration**
+- **Disbursement plan monitoring** with real-time status updates
+- **Execution history tracking** with transaction records
+- **Beneficiary record management** with payment history
+- **Plan modification monitoring** for pause/resume/cancel actions
+
+### 3. **Advanced Security Event Monitoring**
+- **Security settings tracking** with configuration changes
+- **Wallet security monitoring** with freeze/blacklist events
+- **Inactivity monitoring** with trigger detection and response
+- **Access control logging** with permission management
+
+### 4. **Enhanced Escrow and Swap Management**
+- **Escrow lifecycle tracking** with lock/release events
+- **Swap request monitoring** with execution status
+- **DEX integration tracking** with performance metrics
+- **Claim code management** with generation and usage tracking
+
+### 5. **Comprehensive Activity Logging**
+- **Real-time activity tracking** for all operations
+- **Cross-system event correlation** for data consistency
+- **Performance analytics** for all new features
+- **Security event monitoring** with automated alerts
+
+### 6. **Enhanced Data Consistency Management**
+- **On-chain to off-chain synchronization** for all new features
+- **Real-time data validation** with consistency checks
+- **Cross-system health monitoring** with alerting
+- **Automated recovery procedures** for data inconsistencies
+
+This enhanced indexer implementation ensures that all new InheritX features are properly monitored, indexed, and synchronized between on-chain and off-chain systems while maintaining the highest standards of performance, reliability, and data consistency. 

@@ -19,7 +19,7 @@ Pinata serves as the decentralized storage layer for InheritX, handling encrypte
 - **Access Control**: Owner and guardian access only
 - **Audit Trail**: Complete access history tracking
 
-### 2. File Management System
+### 2. Enhanced File Management System
 
 #### Upload Process
 ```typescript
@@ -46,26 +46,140 @@ interface FileUpload {
 }
 ```
 
-#### Storage Structure
+#### Enhanced Storage Structure
 ```
 /kyc-documents/
   /{user-id}/
     /identity/
     /address-proof/
     /financial/
+    /verification-status/
     
 /inheritance-plans/
   /{plan-id}/
+    /basic-info/
+    /asset-allocation/
+    /rules-conditions/
+    /verification-data/
+    /plan-preview/
     /encrypted-details/
     /beneficiary-info/
     /guardian-access/
+    /activity-logs/
+    
+/monthly-disbursements/
+  /{plan-id}/
+    /disbursement-plans/
+    /execution-history/
+    /beneficiary-records/
+    /modification-logs/
+    
+/security-documents/
+  /{plan-id}/
+    /security-settings/
+    /wallet-security/
+    /inactivity-monitors/
+    /access-control/
     
 /temp-uploads/
   /{session-id}/
     /pending-verification/
+    /plan-creation-drafts/
+    /disbursement-setup/
 ```
 
-### 3. Encryption & Security
+### 3. Enhanced Document Types and Storage
+
+#### Plan Creation Flow Documents
+- **Basic Plan Info**: Plan names, descriptions, owner details
+- **Asset Allocation Data**: Beneficiary distribution, percentages, asset types
+- **Rules and Conditions**: Guardian setup, execution rules, emergency procedures
+- **Verification Documents**: KYC status, compliance checks, legal documents
+- **Plan Previews**: Generated summaries, risk assessments, final confirmations
+
+#### Monthly Disbursement Documents
+- **Disbursement Plans**: Monthly schedules, beneficiary allocations, timeframes
+- **Payment Records**: Transaction history, beneficiary receipts, tax documents
+- **Plan Modifications**: Pause/resume records, cancellation documents, updates
+
+#### Enhanced Security Documents
+- **Security Settings**: Multi-signature configurations, guardian permissions
+- **Wallet Security**: Freeze/blacklist records, security violation reports
+- **Inactivity Monitoring**: Activity logs, trigger records, response procedures
+
+### 4. Enhanced Metadata Management
+
+#### Plan Creation Flow Metadata
+```typescript
+interface PlanCreationMetadata {
+  planId: string;
+  creationStep: 'basic_info' | 'asset_allocation' | 'rules_conditions' | 'verification' | 'preview' | 'active';
+  stepData: {
+    basicInfo?: BasicPlanInfo;
+    assetAllocation?: AssetAllocationData;
+    rulesConditions?: RulesConditionsData;
+    verification?: VerificationData;
+    preview?: PlanPreviewData;
+  };
+  timestamps: {
+    stepStarted: number;
+    stepCompleted: number;
+    totalDuration: number;
+  };
+  validationStatus: 'pending' | 'validating' | 'valid' | 'invalid' | 'requires_review';
+}
+```
+
+#### Monthly Disbursement Metadata
+```typescript
+interface DisbursementMetadata {
+  planId: string;
+  disbursementId: string;
+  status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
+  schedule: {
+    startMonth: number;
+    endMonth: number;
+    totalMonths: number;
+    completedMonths: number;
+    nextDisbursementDate: number;
+  };
+  beneficiaries: Array<{
+    address: string;
+    percentage: number;
+    monthlyAmount: number;
+    totalReceived: number;
+  }>;
+  executionHistory: Array<{
+    month: number;
+    amount: number;
+    executedDate: number;
+    transactionHash: string;
+  }>;
+}
+```
+
+#### Security and Monitoring Metadata
+```typescript
+interface SecurityMetadata {
+  planId: string;
+  securityLevel: number;
+  multiSigThreshold: number;
+  guardianPermissions: GuardianPermissions;
+  inactivityMonitor: {
+    threshold: number;
+    lastActivity: number;
+    isActive: boolean;
+  };
+  walletSecurity: {
+    isFrozen: boolean;
+    isBlacklisted: boolean;
+    freezeReason?: string;
+    blacklistReason?: string;
+  };
+}
+```
+
+### 5. Encryption & Security
 
 #### Client-Side Encryption
 - **Algorithm**: AES-256-GCM for symmetric encryption
@@ -73,11 +187,14 @@ interface FileUpload {
 - **Key Storage**: Encrypted keys stored in user's wallet
 - **Zero-Knowledge**: Server never sees unencrypted content
 
-#### Access Control
-- **Role-Based Access**: Owner, beneficiary, guardian, admin
-- **Time-Based Access**: Expiring access tokens
-- **Audit Logging**: Complete access history
-- **Revocation**: Immediate access removal capability
+#### Enhanced Access Control
+- **Role-Based Access**: Owner, beneficiary, guardian, admin, emergency contact
+- **Plan-Specific Permissions**: Different access levels per inheritance plan
+- **Time-Based Access**: Expiring access tokens with configurable durations
+- **Conditional Access**: Access based on plan status and verification state
+- **Audit Logging**: Complete access history with metadata enrichment
+- **Revocation**: Immediate access removal capability with notification
+- **Emergency Access**: Guardian and emergency contact access protocols
 
 ### 4. API Integration
 
@@ -96,8 +213,35 @@ GET /pinning/pinList?metadata[name]={name}
 GET /pinning/pinList?metadata[keyvalues]={key:value}
 ```
 
-#### InheritX Integration Layer
+#### Enhanced InheritX Integration Layer
 ```typescript
+// Plan Creation Flow Integration
+interface PlanCreationService {
+  createBasicInfo(planData: BasicPlanInfo): Promise<IPFSResult>;
+  setAssetAllocation(planId: string, allocationData: AssetAllocationData): Promise<IPFSResult>;
+  setRulesConditions(planId: string, rulesData: RulesConditionsData): Promise<IPFSResult>;
+  completeVerification(planId: string, verificationData: VerificationData): Promise<IPFSResult>;
+  generatePreview(planId: string, previewData: PlanPreviewData): Promise<IPFSResult>;
+  activatePlan(planId: string, activationData: ActivationData): Promise<IPFSResult>;
+}
+
+// Monthly Disbursement Integration
+interface DisbursementService {
+  createDisbursementPlan(planData: DisbursementPlanData): Promise<IPFSResult>;
+  executeDisbursement(planId: string, executionData: ExecutionData): Promise<IPFSResult>;
+  pauseDisbursement(planId: string, reason: string): Promise<IPFSResult>;
+  resumeDisbursement(planId: string): Promise<IPFSResult>;
+  getDisbursementStatus(planId: string): Promise<DisbursementStatus>;
+}
+
+// Enhanced Security Integration
+interface SecurityService {
+  updateSecuritySettings(planId: string, settings: SecuritySettings): Promise<IPFSResult>;
+  manageWalletSecurity(wallet: string, action: SecurityAction): Promise<IPFSResult>;
+  createInactivityMonitor(monitorData: InactivityMonitorData): Promise<IPFSResult>;
+  updateActivityStatus(wallet: string, activityData: ActivityData): Promise<IPFSResult>;
+}
+```
 class PinataService {
   // Upload encrypted file
   async uploadEncryptedFile(file: Buffer, metadata: FileMetadata): Promise<IPFSResponse>
@@ -194,13 +338,25 @@ class PinataService {
 - **Graceful Degradation**: Provide metadata even if file unavailable
 - **Recovery Procedures**: Automated file re-upload and pinning
 
-### 9. Monitoring & Analytics
+### 9. Enhanced Monitoring & Analytics
 
 #### Performance Metrics
 - **Upload Success Rate**: Percentage of successful uploads
 - **Retrieval Latency**: Average file access time
 - **Storage Utilization**: IPFS storage usage tracking
 - **Error Rates**: Upload and retrieval failure rates
+- **Plan Creation Flow Metrics**: Step completion rates and timing
+- **Disbursement Execution Metrics**: Success rates and performance
+- **Security Operation Metrics**: Response times and effectiveness
+
+#### Enhanced Usage Analytics
+- **Plan Creation Flow Analysis**: Step-by-step completion patterns
+- **Monthly Disbursement Patterns**: Execution frequency and success rates
+- **Security Event Analysis**: Freeze/blacklist patterns and triggers
+- **Inactivity Monitoring Metrics**: Trigger frequency and response times
+- **Document Type Distribution**: Most common document types by feature
+- **Storage Growth by Feature**: Storage usage trends for new features
+- **Access Pattern Analysis**: Peak usage times and user behavior
 
 #### Usage Analytics
 - **File Type Distribution**: Most common document types
@@ -208,13 +364,25 @@ class PinataService {
 - **Access Patterns**: Peak usage times and patterns
 - **User Behavior**: Upload and retrieval frequency
 
-### 10. Compliance & Security
+### 10. Enhanced Compliance & Security
 
 #### Data Privacy
 - **GDPR Compliance**: Right to be forgotten implementation
 - **Data Minimization**: Store only necessary information
 - **Consent Management**: User consent tracking and management
 - **Data Portability**: Export user data capability
+- **Plan-Specific Privacy**: Granular privacy controls per inheritance plan
+- **Beneficiary Privacy**: Controlled access to beneficiary information
+- **Guardian Privacy**: Secure guardian access with audit trails
+
+#### Enhanced Security Measures
+- **Access Logging**: Complete audit trail of all access
+- **Encryption at Rest**: All data encrypted before IPFS storage
+- **Secure Key Management**: Hardware security module integration
+- **Regular Security Audits**: Third-party security assessments
+- **Multi-Factor Authentication**: Enhanced access control for sensitive operations
+- **Real-Time Threat Detection**: Automated security monitoring and alerts
+- **Incident Response**: Automated response to security violations
 
 #### Security Measures
 - **Access Logging**: Complete audit trail of all access
@@ -222,13 +390,25 @@ class PinataService {
 - **Secure Key Management**: Hardware security module integration
 - **Regular Security Audits**: Third-party security assessments
 
-### 11. Integration with Smart Contract
+### 11. Enhanced Integration with Smart Contract
 
 #### On-Chain References
 - **IPFS Hash Storage**: Store file hashes in smart contract
 - **Metadata Verification**: Verify file authenticity on-chain
 - **Access Control**: Smart contract-based permission management
 - **Event Emission**: Contract events for file operations
+- **Plan Creation Flow Tracking**: Step-by-step progress on-chain
+- **Monthly Disbursement Status**: Real-time status synchronization
+- **Security Settings**: On-chain security configuration storage
+
+#### Enhanced Off-Chain Synchronization
+- **Event Listening**: Monitor smart contract events
+- **State Updates**: Keep IPFS metadata in sync with contract
+- **Permission Updates**: Reflect contract permission changes
+- **Cleanup Coordination**: Coordinate with contract state changes
+- **Plan Status Synchronization**: Real-time plan status updates
+- **Disbursement Execution Tracking**: Monitor execution progress
+- **Security Event Monitoring**: Track security-related contract events
 
 #### Off-Chain Synchronization
 - **Event Listening**: Monitor smart contract events
@@ -280,4 +460,38 @@ ENCRYPTION_KEY=your_encryption_key
 - **pinata.config.js**: Pinata API configuration
 - **ipfs.config.js**: IPFS gateway configuration
 - **encryption.config.js**: Encryption algorithm settings
-- **storage.config.js**: Storage policy configuration 
+- **storage.config.js**: Storage policy configuration
+
+## New Features Summary
+
+### 1. **Enhanced Plan Creation Flow Support**
+- **Step-by-step document storage** for each creation phase
+- **Metadata tracking** for plan creation progress
+- **Validation status storage** and verification documents
+- **Plan preview generation** with risk assessment data
+
+### 2. **Monthly Disbursement System Integration**
+- **Disbursement plan storage** with scheduling data
+- **Execution history tracking** with transaction records
+- **Beneficiary record management** with payment history
+- **Plan modification logs** for pause/resume/cancel actions
+
+### 3. **Advanced Security Document Management**
+- **Security settings storage** with configuration data
+- **Wallet security records** with freeze/blacklist history
+- **Inactivity monitoring data** with trigger records
+- **Access control logs** with permission management
+
+### 4. **Enhanced Metadata and Analytics**
+- **Comprehensive metadata structures** for all new features
+- **Real-time status tracking** with IPFS synchronization
+- **Performance metrics** for new functionality
+- **Security analytics** with threat detection data
+
+### 5. **Improved Compliance and Privacy**
+- **Granular privacy controls** per inheritance plan
+- **Enhanced audit trails** for all operations
+- **Multi-factor authentication** for sensitive operations
+- **Real-time security monitoring** with automated responses
+
+This enhanced Pinata integration ensures that all new InheritX features have robust, secure, and compliant document storage and management capabilities while maintaining the highest standards of data privacy and security. 

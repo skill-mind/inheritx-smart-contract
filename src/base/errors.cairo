@@ -78,3 +78,7 @@ pub const ERR_WALLET_ALREADY_FROZEN: felt252 = 'Wallet already frozen';
 pub const ERR_WALLET_NOT_FROZEN: felt252 = 'Wallet not frozen';
 pub const ERR_WALLET_ALREADY_BLACKLISTED: felt252 = 'Wallet already blacklisted';
 pub const ERR_WALLET_NOT_BLACKLISTED: felt252 = 'Wallet not blacklisted';
+
+// Plan creation flow errors
+pub const ERR_INVALID_ADDRESS: felt252 = 'Invalid address';
+pub const ERR_INVALID_STATE: felt252 = 'Invalid state';

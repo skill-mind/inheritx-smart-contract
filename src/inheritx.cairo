@@ -83,7 +83,28 @@ pub mod InheritX {
         // Wallet freezing and blacklisting
         frozen_wallets: Map<ContractAddress, bool>, // wallet -> is_frozen
         freeze_reasons: Map<ContractAddress, FreezeInfo>, // wallet -> freeze_info
-        blacklisted_wallets: Map<ContractAddress, bool> // wallet -> is_blacklisted
+        blacklisted_wallets: Map<ContractAddress, bool>, // wallet -> is_blacklisted
+        // Plan creation flow storage
+        basic_plan_info: Map<u256, BasicPlanInfo>, // basic_info_id -> basic_info
+        plan_rules: Map<u256, PlanRules>, // plan_id -> rules
+        verification_data: Map<u256, VerificationData>, // plan_id -> verification
+        plan_previews: Map<u256, PlanPreview>, // plan_id -> preview
+        plan_asset_allocations: Map<u256, u8>, // plan_id -> allocation count
+        // Activity logging
+        activity_count: Map<u256, u256>, // plan_id -> activity count
+        global_activity_log: Map<u256, ActivityLog>, // activity_id -> activity
+        // Plan creation tracking
+        plan_creation_steps: Map<u256, PlanCreationStatus>, // plan_id -> creation status
+        pending_plans: Map<u256, bool>, // plan_id -> is_pending
+        // Monthly disbursement storage
+        monthly_disbursement_plans: Map<u256, MonthlyDisbursementPlan>, // plan_id -> monthly plan
+        monthly_disbursements: Map<u256, MonthlyDisbursement>, // disbursement_id -> disbursement
+        disbursement_beneficiaries: Map<
+            (u256, u256), DisbursementBeneficiary,
+        >, // (plan_id, beneficiary_index) -> beneficiary
+        disbursement_beneficiary_count: Map<u256, u8>, // plan_id -> beneficiary count
+        monthly_disbursement_count: Map<(), u256>, // Global counter
+        monthly_disbursement_execution_count: Map<(), u256> // Execution counter
     }
 
     #[event]
@@ -99,6 +120,26 @@ pub mod InheritX {
         WalletUnfrozen: WalletUnfrozen,
         WalletBlacklisted: WalletBlacklisted,
         WalletRemovedFromBlacklist: WalletRemovedFromBlacklist,
+        // Plan creation flow events
+        BasicPlanInfoCreated: BasicPlanInfoCreated,
+        AssetAllocationSet: AssetAllocationSet,
+        RulesConditionsSet: RulesConditionsSet,
+        VerificationCompleted: VerificationCompleted,
+        PlanPreviewGenerated: PlanPreviewGenerated,
+        PlanActivated: PlanActivated,
+        PlanCreationStepCompleted: PlanCreationStepCompleted,
+        // Activity logging events
+        ActivityLogged: ActivityLogged,
+        PlanStatusUpdated: PlanStatusUpdated,
+        BeneficiaryModified: BeneficiaryModified,
+        // Monthly disbursement events
+        MonthlyDisbursementPlanCreated: MonthlyDisbursementPlanCreated,
+        MonthlyDisbursementExecuted: MonthlyDisbursementExecuted,
+        MonthlyDisbursementPaused: MonthlyDisbursementPaused,
+        MonthlyDisbursementResumed: MonthlyDisbursementResumed,
+        MonthlyDisbursementCancelled: MonthlyDisbursementCancelled,
+        DisbursementBeneficiaryAdded: DisbursementBeneficiaryAdded,
+        DisbursementBeneficiaryRemoved: DisbursementBeneficiaryRemoved,
     }
 
     #[constructor]
@@ -122,6 +163,8 @@ pub mod InheritX {
         self.swap_count.write(0);
         self.pending_kyc_count.write(0);
         self.escrow_count.write(0);
+        self.monthly_disbursement_count.write((), 0);
+        self.monthly_disbursement_execution_count.write((), 0);
 
         // Initialize default security settings
         let default_security = SecuritySettings {
@@ -1278,6 +1321,497 @@ pub mod InheritX {
 
         fn get_security_settings(self: @ContractState) -> SecuritySettings {
             self.security_settings.read()
+        }
+
+        // Get beneficiary count (Backend fetches actual beneficiaries)
+        fn get_beneficiary_count(self: @ContractState, basic_info_id: u256) -> u256 {
+            self.plan_beneficiary_count.read(basic_info_id)
+        }
+
+        // ================ MONTHLY DISBURSEMENT FUNCTIONS ================
+
+        // Create monthly disbursement plan
+        fn create_monthly_disbursement_plan(
+            ref self: ContractState,
+            total_amount: u256,
+            monthly_amount: u256,
+            start_month: u64,
+            end_month: u64,
+            beneficiaries: Array<DisbursementBeneficiary>,
+        ) -> u256 {
+            self.assert_not_paused();
+
+            // Validate inputs
+            assert(total_amount > 0, ERR_INVALID_INPUT);
+            assert(monthly_amount > 0, ERR_INVALID_INPUT);
+            assert(start_month < end_month, ERR_INVALID_INPUT);
+            assert(beneficiaries.len() > 0, ERR_INVALID_INPUT);
+            assert(
+                beneficiaries.len() <= self.security_settings.read().max_beneficiaries.into(),
+                ERR_MAX_BENEFICIARIES_REACHED,
+            );
+
+            // Calculate total months
+            let total_months = (end_month - start_month) / 2592000; // Approximate month in seconds
+
+            // Generate plan ID
+            let plan_id = self.monthly_disbursement_count.read(()) + 1;
+            self.monthly_disbursement_count.write((), plan_id);
+
+            // Create monthly disbursement plan
+            let monthly_plan = MonthlyDisbursementPlan {
+                plan_id,
+                owner: starknet::get_caller_address(),
+                total_amount,
+                monthly_amount,
+                start_month,
+                end_month,
+                total_months: total_months.try_into().unwrap(),
+                completed_months: 0,
+                next_disbursement_date: start_month,
+                is_active: true,
+                beneficiaries_count: beneficiaries.len().try_into().unwrap(),
+                disbursement_status: DisbursementStatus::Pending,
+                created_at: starknet::get_block_timestamp(),
+                last_activity: starknet::get_block_timestamp(),
+            };
+
+            // Store plan
+            self.monthly_disbursement_plans.write(plan_id, monthly_plan);
+
+            // Store beneficiaries
+            let mut i: u32 = 0;
+            while i != beneficiaries.len() {
+                let beneficiary = beneficiaries[i].clone();
+                let beneficiary_index = i + 1;
+                self
+                    .disbursement_beneficiaries
+                    .write((plan_id, beneficiary_index.into()), beneficiary);
+                i += 1;
+            }
+
+            // Store beneficiary count
+            self
+                .disbursement_beneficiary_count
+                .write(plan_id, beneficiaries.len().try_into().unwrap());
+
+            // Emit event
+            self
+                .emit(
+                    MonthlyDisbursementPlanCreated {
+                        plan_id,
+                        owner: starknet::get_caller_address(),
+                        total_amount,
+                        monthly_amount,
+                        start_month,
+                        end_month,
+                        created_at: starknet::get_block_timestamp(),
+                    },
+                );
+
+            plan_id
+        }
+
+        // Execute monthly disbursement
+        fn execute_monthly_disbursement(ref self: ContractState, plan_id: u256) {
+            self.assert_not_paused();
+
+            // Get plan
+            let plan = self.monthly_disbursement_plans.read(plan_id);
+            assert(plan.is_active, ERR_INVALID_STATE);
+            assert(plan.disbursement_status == DisbursementStatus::Active, ERR_INVALID_STATE);
+            assert(
+                starknet::get_block_timestamp() >= plan.next_disbursement_date, ERR_INVALID_STATE,
+            );
+
+            // Generate disbursement ID
+            let disbursement_id = self.monthly_disbursement_execution_count.read(()) + 1;
+            self.monthly_disbursement_execution_count.write((), disbursement_id);
+
+            // Create disbursement record
+            let disbursement = MonthlyDisbursement {
+                disbursement_id,
+                plan_id,
+                month: plan.next_disbursement_date,
+                amount: plan.monthly_amount,
+                status: DisbursementStatus::Active,
+                scheduled_date: plan.next_disbursement_date,
+                executed_date: starknet::get_block_timestamp(),
+                beneficiaries_count: plan.beneficiaries_count,
+                transaction_hash: "",
+            };
+
+            // Store disbursement
+            self.monthly_disbursements.write(disbursement_id, disbursement);
+
+            // Capture values before moving plan
+            let month = plan.next_disbursement_date;
+            let amount = plan.monthly_amount;
+            let beneficiaries_count = plan.beneficiaries_count;
+
+            // Update plan
+            let mut updated_plan = plan;
+            updated_plan.completed_months += 1;
+            updated_plan.next_disbursement_date += 2592000; // Add one month
+            updated_plan.last_activity = starknet::get_block_timestamp();
+
+            if updated_plan.completed_months >= updated_plan.total_months {
+                updated_plan.disbursement_status = DisbursementStatus::Completed;
+                updated_plan.is_active = false;
+            }
+
+            self.monthly_disbursement_plans.write(plan_id, updated_plan);
+
+            // Emit event
+            self
+                .emit(
+                    MonthlyDisbursementExecuted {
+                        disbursement_id,
+                        plan_id,
+                        month,
+                        amount,
+                        beneficiaries_count,
+                        executed_at: starknet::get_block_timestamp(),
+                        transaction_hash: "",
+                    },
+                );
+        }
+
+        // Pause monthly disbursement plan
+        fn pause_monthly_disbursement(ref self: ContractState, plan_id: u256, reason: ByteArray) {
+            self.assert_not_paused();
+
+            let plan = self.monthly_disbursement_plans.read(plan_id);
+            assert(plan.owner == starknet::get_caller_address(), ERR_UNAUTHORIZED);
+            assert(plan.is_active, ERR_INVALID_STATE);
+            assert(plan.disbursement_status == DisbursementStatus::Active, ERR_INVALID_STATE);
+
+            let mut updated_plan = plan;
+            updated_plan.disbursement_status = DisbursementStatus::Paused;
+            updated_plan.last_activity = starknet::get_block_timestamp();
+            self.monthly_disbursement_plans.write(plan_id, updated_plan);
+
+            self
+                .emit(
+                    MonthlyDisbursementPaused {
+                        plan_id,
+                        paused_at: starknet::get_block_timestamp(),
+                        paused_by: starknet::get_caller_address(),
+                        reason,
+                    },
+                );
+        }
+
+        // Resume monthly disbursement plan
+        fn resume_monthly_disbursement(ref self: ContractState, plan_id: u256) {
+            self.assert_not_paused();
+
+            let plan = self.monthly_disbursement_plans.read(plan_id);
+            assert(plan.owner == starknet::get_caller_address(), ERR_UNAUTHORIZED);
+            assert(plan.disbursement_status == DisbursementStatus::Paused, ERR_INVALID_STATE);
+
+            let mut updated_plan = plan;
+            updated_plan.disbursement_status = DisbursementStatus::Active;
+            updated_plan.last_activity = starknet::get_block_timestamp();
+            self.monthly_disbursement_plans.write(plan_id, updated_plan);
+
+            self
+                .emit(
+                    MonthlyDisbursementResumed {
+                        plan_id,
+                        resumed_at: starknet::get_block_timestamp(),
+                        resumed_by: starknet::get_caller_address(),
+                    },
+                );
+        }
+
+        // Get monthly disbursement plan status
+        fn get_monthly_disbursement_status(
+            self: @ContractState, plan_id: u256,
+        ) -> MonthlyDisbursementPlan {
+            self.monthly_disbursement_plans.read(plan_id)
+        }
+
+        // ================ PLAN CREATION FLOW FUNCTIONS ================
+
+        // Step 1: Create basic plan info
+        fn create_plan_basic_info(
+            ref self: ContractState,
+            plan_name: ByteArray,
+            plan_description: ByteArray,
+            owner_email_hash: ByteArray,
+            initial_beneficiary: ContractAddress,
+            initial_beneficiary_email: ByteArray,
+        ) -> u256 {
+            self.assert_not_paused();
+
+            // Validate inputs
+            assert(plan_name.len() > 0, ERR_INVALID_INPUT);
+            assert(plan_description.len() > 0, ERR_INVALID_INPUT);
+            assert(owner_email_hash.len() > 0, ERR_INVALID_INPUT);
+            assert(initial_beneficiary_email.len() > 0, ERR_INVALID_INPUT);
+            assert(initial_beneficiary != contract_address_const::<0>(), ERR_INVALID_ADDRESS);
+
+            // Generate basic info ID
+            let basic_info_id = self.plan_count.read() + 1;
+            self.plan_count.write(basic_info_id);
+
+            // Create basic plan info
+            let basic_info = BasicPlanInfo {
+                plan_name,
+                plan_description,
+                owner_email_hash,
+                initial_beneficiary,
+                initial_beneficiary_email,
+                created_at: starknet::get_block_timestamp(),
+                status: PlanCreationStatus::BasicInfoCreated,
+            };
+
+            // Store basic info
+            self.basic_plan_info.write(basic_info_id, basic_info.clone());
+            self.pending_plans.write(basic_info_id, true);
+            self.plan_creation_steps.write(basic_info_id, PlanCreationStatus::BasicInfoCreated);
+
+            // Emit event
+            self
+                .emit(
+                    BasicPlanInfoCreated {
+                        basic_info_id,
+                        owner: starknet::get_caller_address(),
+                        plan_name: basic_info.plan_name.clone(),
+                        created_at: basic_info.created_at,
+                    },
+                );
+
+            basic_info_id
+        }
+
+        // Step 2: Set asset allocation
+        fn set_asset_allocation(
+            ref self: ContractState,
+            basic_info_id: u256,
+            beneficiaries: Array<Beneficiary>,
+            asset_allocations: Array<AssetAllocation>,
+        ) {
+            self.assert_not_paused();
+
+            // Validate basic info exists
+            let basic_info = self.basic_plan_info.read(basic_info_id);
+            assert(basic_info.status == PlanCreationStatus::BasicInfoCreated, ERR_INVALID_STATE);
+
+            // Validate beneficiary count
+            let beneficiary_count = beneficiaries.len();
+            assert(beneficiary_count > 0, ERR_INVALID_INPUT);
+            assert(
+                beneficiary_count <= self
+                    .security_settings
+                    .read()
+                    .max_beneficiaries
+                    .try_into()
+                    .unwrap(),
+                ERR_MAX_BENEFICIARIES_REACHED,
+            );
+
+            // Validate total percentage equals 100
+            let mut total_percentage: u8 = 0;
+            let mut i: u32 = 0;
+            while i != beneficiaries.len() {
+                total_percentage += *beneficiaries.at(i).percentage;
+                i += 1;
+            }
+            assert(total_percentage == 100, ERR_INVALID_PERCENTAGE);
+
+            // Store beneficiaries
+            let mut i: u32 = 0;
+            while i != beneficiaries.len() {
+                let beneficiary = beneficiaries[i].clone();
+                let beneficiary_index = i + 1;
+                self
+                    .plan_beneficiaries
+                    .write((basic_info_id, beneficiary_index.into()), beneficiary.clone());
+                self
+                    .beneficiary_by_address
+                    .write((basic_info_id, beneficiary.address), beneficiary_index.into());
+                i += 1;
+            }
+
+            // Store asset allocation count
+            self.plan_asset_allocations.write(basic_info_id, beneficiary_count.try_into().unwrap());
+            self.plan_beneficiary_count.write(basic_info_id, beneficiary_count.into());
+
+            // Update creation step
+            self.plan_creation_steps.write(basic_info_id, PlanCreationStatus::AssetAllocationSet);
+
+            // Emit event
+            self
+                .emit(
+                    AssetAllocationSet {
+                        plan_id: basic_info_id,
+                        beneficiary_count: beneficiary_count.try_into().unwrap(),
+                        total_percentage,
+                        set_at: starknet::get_block_timestamp(),
+                    },
+                );
+
+            // Emit step completion event
+            self
+                .emit(
+                    PlanCreationStepCompleted {
+                        plan_id: basic_info_id,
+                        step: PlanCreationStatus::AssetAllocationSet,
+                        completed_at: starknet::get_block_timestamp(),
+                        completed_by: starknet::get_caller_address(),
+                    },
+                );
+        }
+
+        // Step 3: Mark rules and conditions set (Backend validates)
+        fn mark_rules_conditions_set(ref self: ContractState, basic_info_id: u256) {
+            self.assert_not_paused();
+
+            // Validate previous step completed
+            let creation_status = self.plan_creation_steps.read(basic_info_id);
+            assert(creation_status == PlanCreationStatus::AssetAllocationSet, ERR_INVALID_STATE);
+
+            // Update creation step
+            self.plan_creation_steps.write(basic_info_id, PlanCreationStatus::RulesConditionsSet);
+
+            // Emit step completion event
+            self
+                .emit(
+                    PlanCreationStepCompleted {
+                        plan_id: basic_info_id,
+                        step: PlanCreationStatus::RulesConditionsSet,
+                        completed_at: starknet::get_block_timestamp(),
+                        completed_by: starknet::get_caller_address(),
+                    },
+                );
+        }
+
+        // Step 4: Mark verification completed (Backend validates)
+        fn mark_verification_completed(ref self: ContractState, basic_info_id: u256) {
+            self.assert_not_paused();
+
+            // Validate previous step completed
+            let creation_status = self.plan_creation_steps.read(basic_info_id);
+            assert(creation_status == PlanCreationStatus::RulesConditionsSet, ERR_INVALID_STATE);
+
+            // Update creation step
+            self
+                .plan_creation_steps
+                .write(basic_info_id, PlanCreationStatus::VerificationCompleted);
+
+            // Emit step completion event
+            self
+                .emit(
+                    PlanCreationStepCompleted {
+                        plan_id: basic_info_id,
+                        step: PlanCreationStatus::VerificationCompleted,
+                        completed_at: starknet::get_block_timestamp(),
+                        completed_by: starknet::get_caller_address(),
+                    },
+                );
+        }
+
+        // Step 5: Mark preview ready (Backend generates preview)
+        fn mark_preview_ready(ref self: ContractState, basic_info_id: u256) {
+            self.assert_not_paused();
+
+            // Validate previous step completed
+            let creation_status = self.plan_creation_steps.read(basic_info_id);
+            assert(creation_status == PlanCreationStatus::VerificationCompleted, ERR_INVALID_STATE);
+
+            // Update creation step
+            self.plan_creation_steps.write(basic_info_id, PlanCreationStatus::PreviewReady);
+
+            // Emit step completion event
+            self
+                .emit(
+                    PlanCreationStepCompleted {
+                        plan_id: basic_info_id,
+                        step: PlanCreationStatus::PreviewReady,
+                        completed_at: starknet::get_block_timestamp(),
+                        completed_by: starknet::get_caller_address(),
+                    },
+                );
+        }
+
+        // Step 6: Activate plan
+        fn activate_inheritance_plan(
+            ref self: ContractState, basic_info_id: u256, activation_confirmation: ByteArray,
+        ) {
+            self.assert_not_paused();
+
+            // Validate preview is ready
+            let creation_status = self.plan_creation_steps.read(basic_info_id);
+            assert(creation_status == PlanCreationStatus::PreviewReady, ERR_INVALID_STATE);
+
+            // Validate confirmation
+            assert(activation_confirmation == "CONFIRM", ERR_INVALID_INPUT);
+
+            // Get preview to validate
+            let preview = self.plan_previews.read(basic_info_id);
+            assert(preview.activation_ready, ERR_INVALID_STATE);
+
+            // Create final inheritance plan
+            let basic_info = self.basic_plan_info.read(basic_info_id);
+            let beneficiary_count = self.get_beneficiary_count(basic_info_id);
+            let rules = self.plan_rules.read(basic_info_id);
+            let _verification = self.verification_data.read(basic_info_id);
+
+            // Create inheritance plan
+            let inheritance_plan = InheritancePlan {
+                id: basic_info_id,
+                owner: starknet::get_caller_address(),
+                beneficiary_count: beneficiary_count.try_into().unwrap(),
+                asset_type: AssetType::STRK, // Default - would be set based on asset allocations
+                asset_amount: 0, // Would be calculated from asset allocations
+                nft_token_id: 0,
+                nft_contract: contract_address_const::<0>(), // No NFT contract
+                timeframe: 31536000, // 1 year default
+                created_at: basic_info.created_at,
+                becomes_active_at: starknet::get_block_timestamp(),
+                guardian: contract_address_const::<0>(), // Would be set from rules
+                encrypted_details: "",
+                status: PlanStatus::Active,
+                is_claimed: false,
+                claim_code_hash: "",
+                inactivity_threshold: 2592000, // 30 days default
+                last_activity: starknet::get_block_timestamp(),
+                swap_request_id: 0,
+                escrow_id: 0,
+                security_level: 3, // Medium security
+                auto_execute: rules.auto_execution_rules.auto_execute_on_maturity,
+                emergency_contacts_count: 0,
+            };
+
+            // Store inheritance plan
+            self.inheritance_plans.write(basic_info_id, inheritance_plan);
+
+            // Update creation step
+            self.plan_creation_steps.write(basic_info_id, PlanCreationStatus::PlanActive);
+            self.pending_plans.write(basic_info_id, false);
+
+            // Emit event
+            self
+                .emit(
+                    PlanActivated {
+                        plan_id: basic_info_id,
+                        activated_by: starknet::get_caller_address(),
+                        activated_at: starknet::get_block_timestamp(),
+                    },
+                );
+
+            // Emit step completion event
+            self
+                .emit(
+                    PlanCreationStepCompleted {
+                        plan_id: basic_info_id,
+                        step: PlanCreationStatus::PlanActive,
+                        completed_at: starknet::get_block_timestamp(),
+                        completed_by: starknet::get_caller_address(),
+                    },
+                );
         }
     }
 }

@@ -1,5 +1,8 @@
 use core::byte_array::ByteArray;
 use starknet::ContractAddress;
+use super::types::{
+    ActivityType, ComplianceStatus, KYCStatus, PlanCreationStatus, PlanStatus, ValidationStatus,
+};
 
 // ================ INHERITANCE PLAN EVENTS ================
 
@@ -466,4 +469,152 @@ pub struct PlanOverrideRejected {
     pub rejected_at: u64,
     pub rejected_by: ContractAddress,
     pub rejection_reason: ByteArray,
+}
+
+// Plan creation flow events
+#[derive(Drop, starknet::Event)]
+pub struct BasicPlanInfoCreated {
+    pub basic_info_id: u256,
+    pub owner: ContractAddress,
+    pub plan_name: ByteArray,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct AssetAllocationSet {
+    pub plan_id: u256,
+    pub beneficiary_count: u8,
+    pub total_percentage: u8,
+    pub set_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RulesConditionsSet {
+    pub plan_id: u256,
+    pub guardian: ContractAddress,
+    pub auto_execute: bool,
+    pub set_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct VerificationCompleted {
+    pub plan_id: u256,
+    pub kyc_status: KYCStatus,
+    pub compliance_status: ComplianceStatus,
+    pub verified_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlanPreviewGenerated {
+    pub plan_id: u256,
+    pub validation_status: ValidationStatus,
+    pub activation_ready: bool,
+    pub generated_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlanActivated {
+    pub plan_id: u256,
+    pub activated_by: ContractAddress,
+    pub activated_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlanCreationStepCompleted {
+    pub plan_id: u256,
+    pub step: PlanCreationStatus,
+    pub completed_at: u64,
+    pub completed_by: ContractAddress,
+}
+
+// Activity logging events
+#[derive(Drop, starknet::Event)]
+pub struct ActivityLogged {
+    pub activity_id: u256,
+    pub plan_id: u256,
+    pub user_address: ContractAddress,
+    pub activity_type: ActivityType,
+    pub timestamp: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PlanStatusUpdated {
+    pub plan_id: u256,
+    pub old_status: PlanStatus,
+    pub new_status: PlanStatus,
+    pub updated_by: ContractAddress,
+    pub updated_at: u64,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct BeneficiaryModified {
+    pub plan_id: u256,
+    pub beneficiary_address: ContractAddress,
+    pub modification_type: ByteArray,
+    pub modified_at: u64,
+    pub modified_by: ContractAddress,
+}
+
+// Monthly Disbursement Events
+#[derive(Drop, starknet::Event)]
+pub struct MonthlyDisbursementPlanCreated {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub total_amount: u256,
+    pub monthly_amount: u256,
+    pub start_month: u64,
+    pub end_month: u64,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct MonthlyDisbursementExecuted {
+    pub disbursement_id: u256,
+    pub plan_id: u256,
+    pub month: u64,
+    pub amount: u256,
+    pub beneficiaries_count: u8,
+    pub executed_at: u64,
+    pub transaction_hash: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct MonthlyDisbursementPaused {
+    pub plan_id: u256,
+    pub paused_at: u64,
+    pub paused_by: ContractAddress,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct MonthlyDisbursementResumed {
+    pub plan_id: u256,
+    pub resumed_at: u64,
+    pub resumed_by: ContractAddress,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct MonthlyDisbursementCancelled {
+    pub plan_id: u256,
+    pub cancelled_at: u64,
+    pub cancelled_by: ContractAddress,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DisbursementBeneficiaryAdded {
+    pub plan_id: u256,
+    pub beneficiary_address: ContractAddress,
+    pub percentage: u8,
+    pub monthly_amount: u256,
+    pub added_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DisbursementBeneficiaryRemoved {
+    pub plan_id: u256,
+    pub beneficiary_address: ContractAddress,
+    pub removed_at: u64,
+    pub removed_by: ContractAddress,
 }
