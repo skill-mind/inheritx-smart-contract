@@ -13,6 +13,7 @@ pub const ERR_PLAN_ALREADY_CLAIMED: felt252 = 'Plan already claimed';
 pub const ERR_INVALID_TIMEFRAME: felt252 = 'Invalid timeframe';
 pub const ERR_INVALID_BENEFICIARIES: felt252 = 'Invalid beneficiaries';
 pub const ERR_INSUFFICIENT_BALANCE: felt252 = 'Insufficient balance';
+pub const ERR_INSUFFICIENT_USER_BALANCE: felt252 = 'Insufficient user balance';
 pub const ERR_INVALID_ASSET_TYPE: felt252 = 'Invalid asset type';
 
 // ================ CLAIM ERRORS ================

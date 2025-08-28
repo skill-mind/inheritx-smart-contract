@@ -1,8 +1,8 @@
 use core::array::ArrayTrait;
 use core::byte_array::ByteArray;
 use inheritx_contracts::base::types::{
-    AssetAllocation, AssetType, BasicDistributionSchedule, Beneficiary, DisbursementBeneficiary,
-    KYCStatus,
+    AssetAllocation, AssetType, BasicDistributionSchedule, Beneficiary, BeneficiaryData,
+    DisbursementBeneficiary, KYCStatus,
 };
 use inheritx_contracts::interfaces::iinheritx::{IInheritXDispatcher, IInheritXDispatcherTrait};
 use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
@@ -2440,4 +2440,390 @@ fn test_generate_encrypted_claim_code_zero_beneficiary() {
 
     contract.generate_encrypted_claim_code(plan_id, ZERO_ADDR(), // Zero address
     public_key, 86400);
+}
+
+// ================ PERCENTAGE-BASED ALLOCATION TESTS ================
+
+#[test]
+fn test_create_inheritance_plan_with_percentages() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Approve tokens
+    start_cheat_caller_address(strk_token.contract_address, CREATOR_ADDR());
+    strk_token.approve(contract.contract_address, 100_000_000);
+    stop_cheat_caller_address(strk_token.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+
+    // Create beneficiary data with different percentages
+    let mut beneficiary_data = ArrayTrait::new();
+
+    let beneficiary1 = BeneficiaryData {
+        address: USER1_ADDR(),
+        percentage: 60_u8, // 60% of assets
+        email_hash: "user1@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary1);
+
+    let beneficiary2 = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 40_u8, // 40% of assets
+        email_hash: "user2@example.com",
+        age: 30_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary2);
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    let plan_id = contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    assert(plan_id == 1, 'Plan ID should be 1');
+
+    // Verify beneficiary percentages
+    let beneficiaries = contract.get_beneficiary_percentages(plan_id);
+    assert(beneficiaries.len() == 2, 'Should have 2 beneficiaries');
+
+    let beneficiary1_data = beneficiaries.at(0).clone();
+    let beneficiary2_data = beneficiaries.at(1).clone();
+
+    assert(beneficiary1_data.address == USER1_ADDR(), 'First beneficiary be USER1');
+    assert(beneficiary1_data.percentage == 60, 'First beneficiary have 60%');
+    assert(beneficiary2_data.address == USER2_ADDR(), 'Second beneficiary be USER2');
+    assert(beneficiary2_data.percentage == 40, 'Second beneficiary have 40%');
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('Total percentage must equal 100',))]
+fn test_create_inheritance_plan_with_invalid_percentages() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Approve tokens
+    start_cheat_caller_address(strk_token.contract_address, CREATOR_ADDR());
+    strk_token.approve(contract.contract_address, 100_000_000);
+    stop_cheat_caller_address(strk_token.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+
+    // Create beneficiary data with invalid percentages (sum != 100)
+    let mut beneficiary_data = ArrayTrait::new();
+
+    let beneficiary1 = BeneficiaryData {
+        address: USER1_ADDR(),
+        percentage: 60_u8, // 60% of assets
+        email_hash: "user1@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary1);
+
+    let beneficiary2 = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 50_u8, // 50% of assets (total = 110%)
+        email_hash: "user2@example.com",
+        age: 30_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary2);
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    // This should fail because percentages don't sum to 100
+    contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+}
+
+#[test]
+fn test_update_beneficiary_percentages() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Approve tokens
+    start_cheat_caller_address(strk_token.contract_address, CREATOR_ADDR());
+    strk_token.approve(contract.contract_address, 100_000_000);
+    stop_cheat_caller_address(strk_token.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+
+    // Create initial plan with 50/50 split
+    let mut beneficiary_data = ArrayTrait::new();
+
+    let beneficiary1 = BeneficiaryData {
+        address: USER1_ADDR(),
+        percentage: 50_u8,
+        email_hash: "user1@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary1);
+
+    let beneficiary2 = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 50_u8,
+        email_hash: "user2@example.com",
+        age: 30_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary2);
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    let plan_id = contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    // Update to 70/30 split
+    let mut updated_beneficiary_data = ArrayTrait::new();
+
+    let updated_beneficiary1 = BeneficiaryData {
+        address: USER1_ADDR(),
+        percentage: 70_u8, // Increased to 70%
+        email_hash: "user1@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    updated_beneficiary_data.append(updated_beneficiary1);
+
+    let updated_beneficiary2 = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 30_u8, // Decreased to 30%
+        email_hash: "user2@example.com",
+        age: 30_u8,
+        relationship: "Child",
+    };
+    updated_beneficiary_data.append(updated_beneficiary2);
+
+    contract.update_beneficiary_percentages(plan_id, updated_beneficiary_data);
+
+    // Verify updated percentages
+    let beneficiaries = contract.get_beneficiary_percentages(plan_id);
+    assert(beneficiaries.len() == 2, 'Should have 2 beneficiaries');
+
+    let beneficiary1_data = beneficiaries.at(0).clone();
+    let beneficiary2_data = beneficiaries.at(1).clone();
+
+    assert(beneficiary1_data.percentage == 70, 'First beneficiary have 70%');
+    assert(beneficiary2_data.percentage == 30, 'Second beneficiary have 30%');
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_complex_percentage_allocation() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Approve tokens
+    start_cheat_caller_address(strk_token.contract_address, CREATOR_ADDR());
+    strk_token.approve(contract.contract_address, 100_000_000);
+    stop_cheat_caller_address(strk_token.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+
+    // Create plan with 5 beneficiaries with different percentages
+    let mut beneficiary_data = ArrayTrait::new();
+
+    // Add 5 beneficiaries with percentages that sum to 100
+    let mut percentages = ArrayTrait::new();
+    percentages.append(25_u8);
+    percentages.append(20_u8);
+    percentages.append(20_u8);
+    percentages.append(20_u8);
+    percentages.append(15_u8); // 25% + 20% + 20% + 20% + 15% = 100%
+
+    let mut addresses = ArrayTrait::new();
+    addresses.append(USER1_ADDR());
+    addresses.append(USER2_ADDR());
+    addresses.append(ADMIN_ADDR());
+    addresses.append(CREATOR_ADDR());
+    addresses.append(ZERO_ADDR());
+
+    let mut emails = ArrayTrait::new();
+    emails.append("user1@example.com");
+    emails.append("user2@example.com");
+    emails.append("admin@example.com");
+    emails.append("creator@example.com");
+    emails.append("zero@example.com");
+
+    let mut ages = ArrayTrait::new();
+    ages.append(25_u8);
+    ages.append(30_u8);
+    ages.append(35_u8);
+    ages.append(40_u8);
+    ages.append(45_u8);
+
+    let mut relationships = ArrayTrait::new();
+    relationships.append("Child");
+    relationships.append("Spouse");
+    relationships.append("Sibling");
+    relationships.append("Parent");
+    relationships.append("Friend");
+
+    let mut i: u32 = 0;
+    while i != 5 {
+        let beneficiary = BeneficiaryData {
+            address: addresses.at(i).clone(),
+            percentage: percentages.at(i).clone(),
+            email_hash: emails.at(i).clone(),
+            age: ages.at(i).clone(),
+            relationship: relationships.at(i).clone(),
+        };
+        beneficiary_data.append(beneficiary);
+        i += 1;
+    }
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    let plan_id = contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    assert(plan_id == 1, 'Plan ID should be 1');
+
+    // Verify all beneficiary percentages
+    let beneficiaries = contract.get_beneficiary_percentages(plan_id);
+    assert(beneficiaries.len() == 5, 'Should have 5 beneficiaries');
+
+    let mut total_percentage: u8 = 0;
+    let mut i: u32 = 0;
+    while i != 5 {
+        let beneficiary = beneficiaries.at(i).clone();
+        total_percentage += beneficiary.percentage;
+        i += 1;
+    }
+
+    assert(total_percentage == 100, 'Total percentage equal 100%');
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('Insufficient user balance',))]
+fn test_create_inheritance_plan_insufficient_balance() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Use USER1_ADDR who has no tokens
+    start_cheat_caller_address(contract.contract_address, USER1_ADDR());
+
+    // Try to create a plan with 1 STRK when user has 0 balance
+    let mut beneficiary_data = ArrayTrait::new();
+
+    let beneficiary = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 100_u8,
+        email_hash: "user2@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary);
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    // This should fail because USER1_ADDR has no STRK balance
+    contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('Insufficient user balance',))]
+fn test_create_inheritance_plan_insufficient_usdc_balance() {
+    let (contract, _, usdc_token, _) = deploy_inheritx_contract();
+
+    // Setup: Use USER1_ADDR who has no tokens
+    start_cheat_caller_address(contract.contract_address, USER1_ADDR());
+
+    // Try to create a plan with 100 USDC when user has 0 balance
+    let mut beneficiary_data = ArrayTrait::new();
+
+    let beneficiary = BeneficiaryData {
+        address: USER2_ADDR(),
+        percentage: 100_u8,
+        email_hash: "user2@example.com",
+        age: 25_u8,
+        relationship: "Child",
+    };
+    beneficiary_data.append(beneficiary);
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    // This should fail because USER1_ADDR has no USDC balance
+    contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            2, // USDC
+            100_000_000, // 100 USDC (assuming 6 decimals)
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    stop_cheat_caller_address(contract.contract_address);
 }

@@ -224,6 +224,7 @@ pub mod InheritX {
         DisbursementBeneficiaryAdded: DisbursementBeneficiaryAdded,
         DisbursementBeneficiaryRemoved: DisbursementBeneficiaryRemoved,
         ClaimCodeGenerated: ClaimCodeGenerated,
+        InheritancePlanCreated: InheritancePlanCreated,
     }
 
     #[constructor]
@@ -369,6 +370,23 @@ pub mod InheritX {
 
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
+
+            // Check if user has sufficient balance for the asset type
+            if asset_type == 0 { // STRK
+                let strk_token = IERC20Dispatcher { contract_address: self.strk_token.read() };
+                let user_balance = strk_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            } else if asset_type == 1 { // USDT
+                let usdt_token = IERC20Dispatcher { contract_address: self.usdt_token.read() };
+                let user_balance = usdt_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            } else if asset_type == 2 { // USDC
+                let usdc_token = IERC20Dispatcher { contract_address: self.usdc_token.read() };
+                let user_balance = usdc_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            }
+            // Note: NFT balance check is handled separately as it requires ownership verification
+
             let plan_id = self.plan_count.read() + 1;
             let escrow_id = self.escrow_count.read() + 1;
 
@@ -460,6 +478,169 @@ pub mod InheritX {
             plan_id
         }
 
+        // ================ INHERITANCE PLAN FUNCTIONS ================
+
+        /// @notice Creates a new inheritance plan with percentage-based beneficiary allocations
+        /// @param beneficiary_data Array of beneficiary data including address and percentage
+        /// @param asset_type Type of asset (0: STRK, 1: USDT, 2: USDC, 3: NFT)
+        /// @param asset_amount Amount of tokens (0 for NFTs)
+        /// @param nft_token_id NFT token ID (0 for tokens)
+        /// @param nft_contract NFT contract address (0 for tokens)
+        /// @param timeframe Time in seconds until plan becomes active
+        /// @param guardian Optional guardian address (0 for no guardian)
+        /// @param encrypted_details Encrypted inheritance details
+        /// @param security_level Security level (1-5)
+        /// @param auto_execute Whether to auto-execute on maturity
+        /// @param emergency_contacts Array of emergency contact addresses
+        fn create_inheritance_plan_with_percentages(
+            ref self: ContractState,
+            beneficiary_data: Array<BeneficiaryData>,
+            asset_type: u8,
+            asset_amount: u256,
+            nft_token_id: u256,
+            nft_contract: ContractAddress,
+            timeframe: u64,
+            guardian: ContractAddress,
+            encrypted_details: ByteArray,
+            security_level: u8,
+            auto_execute: bool,
+            emergency_contacts: Array<ContractAddress>,
+        ) -> u256 {
+            self.assert_not_paused();
+            assert(beneficiary_data.len() > 0, ERR_INVALID_INPUT);
+            assert(asset_type < 4, ERR_INVALID_ASSET_TYPE);
+            assert(asset_amount > 0 || asset_type == 3, ERR_INVALID_INPUT);
+            assert(timeframe > 0, ERR_INVALID_INPUT);
+
+            // Validate that percentages sum to 100%
+            let mut total_percentage: u8 = 0;
+            let mut i: u32 = 0;
+            while i != beneficiary_data.len() {
+                let beneficiary = beneficiary_data.at(i).clone();
+                total_percentage = total_percentage + beneficiary.percentage;
+                i += 1;
+            }
+            assert(total_percentage == 100, 'Total percentage must equal 100');
+
+            let caller = get_caller_address();
+            let current_time = get_block_timestamp();
+
+            // Check if user has sufficient balance for the asset type
+            if asset_type == 0 { // STRK
+                let strk_token = IERC20Dispatcher { contract_address: self.strk_token.read() };
+                let user_balance = strk_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            } else if asset_type == 1 { // USDT
+                let usdt_token = IERC20Dispatcher { contract_address: self.usdt_token.read() };
+                let user_balance = usdt_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            } else if asset_type == 2 { // USDC
+                let usdc_token = IERC20Dispatcher { contract_address: self.usdc_token.read() };
+                let user_balance = usdc_token.balance_of(caller);
+                assert(user_balance >= asset_amount, ERR_INSUFFICIENT_USER_BALANCE);
+            }
+            // Note: NFT balance check is handled separately as it requires ownership verification
+
+            let plan_id = self.plan_count.read() + 1;
+            let escrow_id = self.escrow_count.read() + 1;
+
+            // Create inheritance plan
+            let plan = InheritancePlan {
+                id: plan_id,
+                owner: caller,
+                beneficiary_count: beneficiary_data.len().try_into().unwrap(),
+                asset_type: SecurityImpl::u8_to_asset_type(asset_type),
+                asset_amount,
+                nft_token_id,
+                nft_contract,
+                timeframe,
+                created_at: current_time,
+                becomes_active_at: current_time + timeframe,
+                guardian,
+                encrypted_details,
+                status: PlanStatus::Active,
+                is_claimed: false,
+                claim_code_hash: "",
+                inactivity_threshold: 0,
+                last_activity: current_time,
+                swap_request_id: 0,
+                escrow_id,
+                security_level,
+                auto_execute,
+                emergency_contacts_count: emergency_contacts.len().try_into().unwrap(),
+            };
+
+            self.inheritance_plans.write(plan_id, plan);
+            self.plan_count.write(plan_id);
+
+            // Store beneficiary count
+            self.plan_beneficiary_count.write(plan_id, beneficiary_data.len().into());
+
+            // Add beneficiaries to storage maps with their percentages
+            let mut i: u256 = 0;
+            while i != beneficiary_data.len().into() {
+                let beneficiary_data_item = beneficiary_data.at(i.try_into().unwrap()).clone();
+                let beneficiary_index = i + 1;
+
+                let beneficiary = Beneficiary {
+                    address: beneficiary_data_item.address,
+                    email_hash: beneficiary_data_item.email_hash,
+                    percentage: beneficiary_data_item.percentage,
+                    has_claimed: false,
+                    claimed_amount: 0,
+                    claim_code_hash: "",
+                    added_at: current_time,
+                    kyc_status: KYCStatus::Pending,
+                    relationship: beneficiary_data_item.relationship,
+                    age: beneficiary_data_item.age,
+                    is_minor: beneficiary_data_item.age < 18,
+                };
+
+                // Store beneficiary
+                self.plan_beneficiaries.write((plan_id, beneficiary_index), beneficiary);
+                i += 1;
+            }
+
+            // Create escrow account for this plan
+            let escrow = EscrowAccount {
+                id: escrow_id,
+                plan_id,
+                asset_type: SecurityImpl::u8_to_asset_type(asset_type),
+                amount: asset_amount,
+                nft_token_id,
+                nft_contract,
+                is_locked: false,
+                locked_at: 0,
+                beneficiary: contract_address_const::<0>(),
+                release_conditions_count: 0,
+                fees: 0,
+                tax_liability: 0,
+                last_valuation: current_time,
+                valuation_price: 0,
+            };
+
+            self.escrow_accounts.write(escrow_id, escrow);
+            self.escrow_count.write(escrow_id);
+            self.plan_escrow.write(plan_id, escrow_id);
+
+            // Emit event
+            self
+                .emit(
+                    InheritancePlanCreated {
+                        plan_id,
+                        owner: caller,
+                        beneficiary_count: beneficiary_data.len().try_into().unwrap(),
+                        asset_type: asset_type,
+                        amount: asset_amount,
+                        timeframe,
+                        created_at: current_time,
+                        security_level,
+                        auto_execute,
+                    },
+                );
+
+            plan_id
+        }
 
         fn claim_inheritance(ref self: ContractState, plan_id: u256, claim_code: ByteArray) {
             self.assert_not_paused();
@@ -1985,6 +2166,118 @@ pub mod InheritX {
                         completed_by: starknet::get_caller_address(),
                     },
                 );
+        }
+
+        /// @notice Updates beneficiary percentages for an existing plan
+        /// @param plan_id ID of the plan
+        /// @param beneficiary_data Array of beneficiary data with updated percentages
+        fn update_beneficiary_percentages(
+            ref self: ContractState, plan_id: u256, beneficiary_data: Array<BeneficiaryData>,
+        ) {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+            self.assert_plan_owner(plan_id);
+            assert(beneficiary_data.len() > 0, ERR_INVALID_INPUT);
+
+            // Validate that percentages sum to 100%
+            let mut total_percentage: u8 = 0;
+            let mut i: u32 = 0;
+            while i != beneficiary_data.len() {
+                let beneficiary = beneficiary_data.at(i).clone();
+                total_percentage = total_percentage + beneficiary.percentage;
+                i += 1;
+            }
+            assert(total_percentage == 100, 'Total percentage must equal 100');
+
+            let current_time = get_block_timestamp();
+            let caller = get_caller_address();
+
+            // Update beneficiaries with new percentages
+            let mut i: u256 = 0;
+            while i != beneficiary_data.len().into() {
+                let beneficiary_data_item = beneficiary_data.at(i.try_into().unwrap()).clone();
+                let beneficiary_index = i + 1;
+
+                // Check if beneficiary exists
+                let existing_beneficiary = self
+                    .plan_beneficiaries
+                    .read((plan_id, beneficiary_index));
+                assert(
+                    existing_beneficiary.address == beneficiary_data_item.address,
+                    'Beneficiary address mismatch',
+                );
+
+                // Update beneficiary with new percentage
+                let updated_beneficiary = Beneficiary {
+                    address: beneficiary_data_item.address,
+                    email_hash: beneficiary_data_item.email_hash,
+                    percentage: beneficiary_data_item.percentage,
+                    has_claimed: existing_beneficiary.has_claimed,
+                    claimed_amount: existing_beneficiary.claimed_amount,
+                    claim_code_hash: existing_beneficiary.claim_code_hash,
+                    added_at: existing_beneficiary.added_at,
+                    kyc_status: existing_beneficiary.kyc_status,
+                    relationship: beneficiary_data_item.relationship,
+                    age: beneficiary_data_item.age,
+                    is_minor: beneficiary_data_item.age < 18,
+                };
+
+                // Store updated beneficiary
+                self.plan_beneficiaries.write((plan_id, beneficiary_index), updated_beneficiary);
+
+                // Emit event for each beneficiary modification
+                self
+                    .emit(
+                        BeneficiaryModified {
+                            plan_id,
+                            beneficiary_address: beneficiary_data_item.address,
+                            modification_type: "Percentage Updated",
+                            modified_at: current_time,
+                            modified_by: caller,
+                        },
+                    );
+
+                i += 1;
+            }
+
+            // Update beneficiary count if it changed
+            let new_count = beneficiary_data.len().try_into().unwrap();
+            self.plan_beneficiary_count.write(plan_id, new_count.into());
+
+            // Update plan beneficiary count
+            let mut plan = self.inheritance_plans.read(plan_id);
+            plan.beneficiary_count = new_count;
+            self.inheritance_plans.write(plan_id, plan);
+        }
+
+        /// @notice Gets beneficiary percentages for a plan
+        /// @param plan_id ID of the plan
+        /// @return Array of beneficiary data with percentages
+        fn get_beneficiary_percentages(
+            self: @ContractState, plan_id: u256,
+        ) -> Array<BeneficiaryData> {
+            self.assert_plan_exists(plan_id);
+
+            let beneficiary_count = self.plan_beneficiary_count.read(plan_id);
+            let mut beneficiaries = ArrayTrait::new();
+
+            let mut i: u256 = 1;
+            while i != beneficiary_count + 1 {
+                let beneficiary = self.plan_beneficiaries.read((plan_id, i));
+
+                let beneficiary_data = BeneficiaryData {
+                    address: beneficiary.address,
+                    percentage: beneficiary.percentage,
+                    email_hash: beneficiary.email_hash,
+                    age: beneficiary.age,
+                    relationship: beneficiary.relationship,
+                };
+
+                beneficiaries.append(beneficiary_data);
+                i += 1;
+            }
+
+            beneficiaries
         }
     }
 
