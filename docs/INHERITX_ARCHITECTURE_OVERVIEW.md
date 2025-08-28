@@ -72,12 +72,20 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - Inheritance plan creation and management
 - Asset escrow and release mechanisms
 - KYC verification system
-- Claim code generation and validation
+- **Enhanced Claim Code System**: Zero-knowledge encrypted claim codes with contract-generated randomness
 - Wallet inactivity monitoring
 - Multi-asset support (STRK, USDT, USDC, NFT)
 
-**Current Status**: ✅ Implemented with basic functionality
-**Improvement Needed**: Enhanced beneficiary management, claim codes, events
+**Enhanced Claim Code System**:
+- **Contract-Generated Randomness**: 32-byte cryptographically secure codes generated on-chain
+- **Zero-Knowledge Encryption**: Asset owners never see plain text codes, only encrypted versions
+- **Public Key Encryption**: Codes encrypted with beneficiary's public key for secure delivery
+- **Automatic Expiration**: Time-based code expiration with configurable durations
+- **Security Auditing**: Comprehensive audit trail for all claim code operations
+- **Delivery Tracking**: Real-time monitoring of code delivery and usage patterns
+
+**Current Status**: ✅ Implemented with enhanced claim code system
+**Improvement Needed**: Production hardening of cryptographic functions
 
 ### 2. Backend API
 **Technology**: Rust + Axum
@@ -131,34 +139,55 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
    ↓
 2. Backend validates input and calculates beneficiary shares (Off-Chain)
    ↓
-3. Backend generates claim codes and stores in database (Off-Chain)
+3. Backend calls smart contract with beneficiary public keys (Off-Chain → On-Chain)
    ↓
-4. Backend calls smart contract with validated data (Off-Chain → On-Chain)
+4. Smart contract generates encrypted claim codes and stores hashes (On-Chain)
    ↓
-5. Smart contract creates plan and stores critical state (On-Chain)
+5. Smart contract returns encrypted codes to asset owner (On-Chain → Off-Chain)
    ↓
 6. Indexer processes contract events and updates backend (On-Chain → Off-Chain)
    ↓
-7. Backend stores plan details and sends email notifications (Off-Chain)
+7. Backend initiates secure code delivery to beneficiaries (Off-Chain)
    ↓
 8. Pinata stores encrypted beneficiary information (Off-Chain)
 ```
 
-### Pattern 2: Inheritance Claim Process (Off-Chain → On-Chain → Off-Chain)
+### Pattern 2: Enhanced Claim Code Generation & Delivery (On-Chain → Off-Chain → Beneficiary)
 ```
-1. Beneficiary receives claim code via email (Off-Chain)
+1. Asset owner calls generate_encrypted_claim_code() (Off-Chain → On-Chain)
    ↓
-2. Backend validates claim code against database (Off-Chain)
+2. Smart contract generates 32-byte random code (On-Chain)
    ↓
-3. Backend verifies KYC status and compliance (Off-Chain)
+3. Smart contract hashes code for on-chain storage (On-Chain)
    ↓
-4. Backend calls smart contract to execute claim (Off-Chain → On-Chain)
+4. Smart contract encrypts code with beneficiary's public key (On-Chain)
    ↓
-5. Smart contract releases assets from escrow (On-Chain)
+5. Smart contract stores hash and returns encrypted code (On-Chain → Off-Chain)
    ↓
-6. Indexer monitors asset transfer completion (On-Chain → Off-Chain)
+6. Indexer monitors EncryptedClaimCodeGenerated event (On-Chain → Off-Chain)
    ↓
-7. Backend updates claim status and sends confirmation (Off-Chain)
+7. Backend receives encrypted code and initiates delivery (Off-Chain)
+   ↓
+8. Backend sends encrypted code to beneficiary via secure channel (Off-Chain)
+   ↓
+9. Beneficiary decrypts code using private key (Beneficiary)
+   ↓
+10. Beneficiary uses plain code to claim inheritance (Beneficiary → On-Chain)
+```
+
+### Pattern 3: Inheritance Claim Process (Off-Chain → On-Chain → Off-Chain)
+```
+1. Beneficiary receives encrypted claim code via secure delivery (Off-Chain)
+   ↓
+2. Beneficiary decrypts code using private key (Beneficiary)
+   ↓
+3. Beneficiary calls claim_inheritance() with plain code (Off-Chain → On-Chain)
+   ↓
+4. Smart contract validates code hash and releases assets (On-Chain)
+   ↓
+5. Indexer monitors ClaimCodeUsed event and updates backend (On-Chain → Off-Chain)
+   ↓
+6. Backend updates claim status and sends confirmation (Off-Chain)
 ```
 
 ### Pattern 3: Wallet Inactivity Monitoring (Hybrid Continuous)
@@ -243,6 +272,20 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - **Security**: Pausable + Access control
 - **Gas Optimization**: Efficient storage patterns
 - **Events**: Comprehensive event emission
+- **Enhanced Claim Code System**: 
+  - Contract-generated 32-byte random codes
+  - Public key encryption for secure delivery
+  - Automatic expiration management
+  - Comprehensive audit trail
+
+### Enhanced Claim Code System Requirements
+- **Code Generation**: 32-byte cryptographically secure random codes
+- **Encryption**: Public key-based encryption (currently XOR, production: RSA/ECC)
+- **Delivery Methods**: Email, SMS, secure portal, API integration
+- **Security Features**: Zero-knowledge approach, automatic expiration, audit logging
+- **Performance**: < 5 second code generation, < 2 second encryption
+- **Scalability**: Support for 1000+ concurrent code generations
+- **Audit Trail**: Complete lifecycle tracking from generation to usage
 
 ## Security Architecture
 
@@ -251,12 +294,22 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - **Client-Side Encryption**: Zero-knowledge file storage
 - **Access Control**: Role-based permissions
 - **Audit Logging**: Complete activity tracking
+- **Enhanced Claim Code Security**: 
+  - Zero-knowledge code generation (asset owners never see plain codes)
+  - Public key encryption for secure delivery
+  - On-chain hash validation for code verification
+  - Automatic expiration and revocation mechanisms
 
 ### Blockchain Security
 - **Smart Contract**: Formal verification recommended
 - **Access Control**: Multi-signature support
 - **Emergency Functions**: Pause and emergency withdrawal
 - **Upgradeability**: Controlled upgrade process
+- **Claim Code Security**: 
+  - Contract-generated randomness (not human-generated)
+  - Cryptographic hashing for code validation
+  - Immutable audit trail through blockchain events
+  - Access control for code generation and management
 
 ### API Security
 - **Rate Limiting**: API abuse prevention
@@ -304,12 +357,18 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - **File Uploads**: < 5 seconds (10MB)
 - **Email Delivery**: < 30 seconds
 - **Blockchain Transactions**: < 10 seconds
+- **Claim Code Generation**: < 5 seconds
+- **Claim Code Encryption**: < 2 seconds
+- **Code Delivery**: < 60 seconds (email), < 10 seconds (SMS)
 
 ### Throughput
 - **Concurrent Users**: 10,000+
 - **Plans per Second**: 100+
 - **File Uploads**: 1000+ per hour
 - **Email Notifications**: 10,000+ per hour
+- **Claim Code Generation**: 1000+ per hour
+- **Code Delivery**: 5000+ per hour
+- **Code Decryption**: 2000+ per hour
 
 ### Scalability
 - **Horizontal Scaling**: Auto-scaling support
@@ -330,6 +389,13 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - **Infrastructure Metrics**: CPU, memory, storage
 - **Business Metrics**: Plan creation, claim rates
 - **Security Metrics**: Failed login attempts, suspicious activity
+- **Enhanced Claim Code Metrics**: 
+  - Code generation success rates and performance
+  - Delivery success rates by method (email, SMS, portal)
+  - Decryption success rates and failure patterns
+  - Code expiration and revocation statistics
+  - Security audit scores and recommendations
+  - Delivery retry patterns and failure analysis
 
 ### Alerting System
 - **Critical Alerts**: Service downtime, security breaches
@@ -354,6 +420,9 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 ## Development Roadmap
 
 ### Phase 1 (Months 1-3)
+- [x] Enhanced claim code system smart contract implementation
+- [x] Zero-knowledge encrypted code generation
+- [x] Public key encryption and delivery workflow
 - [ ] Rust + Axum backend API development
 - [ ] Basic Pinata integration
 - [ ] Smart contract improvements
@@ -361,21 +430,24 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 
 ### Phase 2 (Months 4-6)
 - [ ] Advanced Pinata features
-- [ ] Enhanced indexer functionality
-- [ ] Frontend development
-- [ ] Testing and security audit
+- [ ] Enhanced indexer functionality with claim code monitoring
+- [ ] Frontend development with claim code management
+- [ ] Testing and security audit of claim code system
+- [ ] Production hardening of cryptographic functions
 
 ### Phase 3 (Months 7-9)
 - [ ] Production deployment
-- [ ] Performance optimization
+- [ ] Performance optimization of claim code system
 - [ ] User acceptance testing
 - [ ] Launch preparation
+- [ ] Advanced delivery methods (SMS, secure portal)
 
 ### Phase 4 (Months 10-12)
 - [ ] Production launch
 - [ ] Monitoring and maintenance
 - [ ] User feedback integration
 - [ ] Feature enhancements
+- [ ] Advanced security features (multi-sig, VRF)
 
 ## Risk Assessment
 

@@ -81,6 +81,34 @@ pub trait IInheritX<TContractState> {
         expires_in: u64,
     );
 
+    /// @notice Generates and encrypts claim code for beneficiary (contract-generated)
+    ///
+    /// SECURITY: Contract generates secure random code, encrypts with beneficiary's public key,
+    /// returns only encrypted version. Asset owner never sees plain text code.
+    ///
+    /// WORKFLOW: Contract generates 32-byte random code → hashes for storage → encrypts with
+    /// public key → stores hash on-chain → returns encrypted code to asset owner →
+    /// beneficiary decrypts with private key
+    ///
+    /// @param plan_id ID of the inheritance plan
+    /// @param beneficiary Contract address of the beneficiary
+    /// @param beneficiary_public_key Public key for encryption (use proper asymmetric encryption in
+    /// production)
+    /// @param expires_in Expiration time in seconds (recommended: 30 days = 2592000)
+    ///
+    /// @return encrypted_code The encrypted claim code for beneficiary delivery
+    ///
+    /// @dev Requires: contract not paused, plan exists and owned by caller, beneficiary exists in
+    /// plan @dev Emits: ClaimCodeGenerated event with code hash and metadata
+    /// @dev Storage: Updates claim_codes map with hash and expiration
+    fn generate_encrypted_claim_code(
+        ref self: TContractState,
+        plan_id: u256,
+        beneficiary: ContractAddress,
+        beneficiary_public_key: ByteArray,
+        expires_in: u64,
+    ) -> ByteArray;
+
     // ================ INACTIVITY MONITORING ================
 
     /// @notice Creates an inactivity monitor for a wallet

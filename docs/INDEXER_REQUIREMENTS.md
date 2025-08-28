@@ -128,6 +128,56 @@ event ClaimCodeExpired {
     expired_at: u64
 }
 
+// ================ ENHANCED CLAIM CODE SYSTEM EVENTS ================
+event EncryptedClaimCodeGenerated {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    generated_at: u64,
+    expires_at: u64,
+    generated_by: ContractAddress,
+    encryption_method: ByteArray,
+    public_key_hash: ByteArray
+}
+
+event ClaimCodeDeliveryAttempted {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    delivery_method: ByteArray,
+    delivery_status: ByteArray,
+    attempted_at: u64,
+    delivery_metadata: ByteArray
+}
+
+event ClaimCodeDeliveryConfirmed {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    delivery_method: ByteArray,
+    confirmed_at: u64,
+    confirmation_metadata: ByteArray
+}
+
+event ClaimCodeDecryptionAttempted {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    attempt_timestamp: u64,
+    success: bool,
+    failure_reason: ByteArray
+}
+
+event ClaimCodeSecurityAudit {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    audit_type: ByteArray,
+    audit_result: ByteArray,
+    audit_timestamp: u64,
+    auditor: ContractAddress
+}
+
 // ================ ESCROW EVENTS ================
 event EscrowCreated {
     escrow_id: u256,
@@ -912,6 +962,86 @@ CREATE TABLE claim_codes (
     INDEX idx_is_used (is_used)
 );
 
+-- Enhanced claim codes table for encrypted system
+CREATE TABLE encrypted_claim_codes (
+    id SERIAL PRIMARY KEY,
+    code_hash VARCHAR(255) NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    encryption_method VARCHAR(50) NOT NULL DEFAULT 'XOR',
+    public_key_hash VARCHAR(255),
+    is_used BOOLEAN DEFAULT FALSE,
+    generated_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    used_at BIGINT,
+    attempts INTEGER DEFAULT 0,
+    is_revoked BOOLEAN DEFAULT FALSE,
+    revoked_at BIGINT,
+    revoked_by VARCHAR(42),
+    delivery_status VARCHAR(20) DEFAULT 'pending',
+    delivery_method VARCHAR(50),
+    delivery_attempted_at BIGINT,
+    delivery_confirmed_at BIGINT,
+    decryption_attempts INTEGER DEFAULT 0,
+    last_decryption_attempt BIGINT,
+    last_decryption_success BOOLEAN,
+    security_audit_status VARCHAR(20) DEFAULT 'pending',
+    last_audit_at BIGINT,
+    audit_score INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_code_hash (code_hash),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary (beneficiary),
+    INDEX idx_is_used (is_used),
+    INDEX idx_delivery_status (delivery_status),
+    INDEX idx_expires_at (expires_at),
+    INDEX idx_security_audit_status (security_audit_status)
+);
+
+-- Claim code delivery tracking table
+CREATE TABLE claim_code_deliveries (
+    id SERIAL PRIMARY KEY,
+    code_hash VARCHAR(255) NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    delivery_method VARCHAR(50) NOT NULL,
+    delivery_status VARCHAR(20) NOT NULL,
+    delivery_metadata JSONB,
+    attempted_at BIGINT NOT NULL,
+    confirmed_at BIGINT,
+    failure_reason TEXT,
+    retry_count INTEGER DEFAULT 0,
+    next_retry_at BIGINT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_code_hash (code_hash),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_delivery_status (delivery_status),
+    INDEX idx_delivery_method (delivery_method)
+);
+
+-- Claim code security audit table
+CREATE TABLE claim_code_audits (
+    id SERIAL PRIMARY KEY,
+    code_hash VARCHAR(255) NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    audit_type VARCHAR(50) NOT NULL,
+    audit_result VARCHAR(20) NOT NULL,
+    audit_score INTEGER DEFAULT 0,
+    audit_details JSONB,
+    auditor VARCHAR(42),
+    audit_timestamp BIGINT NOT NULL,
+    recommendations TEXT[],
+    created_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_code_hash (code_hash),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_audit_type (audit_type),
+    INDEX idx_audit_result (audit_result),
+    INDEX idx_audit_timestamp (audit_timestamp)
+);
+
 -- KYC data table
 CREATE TABLE kyc_data (
     id SERIAL PRIMARY KEY,
@@ -976,6 +1106,22 @@ GET /api/indexer/escrow/{escrowId}
 GET /api/indexer/swap-requests/{swapId}
 GET /api/indexer/claim-codes/{codeHash}
 
+// Enhanced claim code system endpoints
+GET /api/indexer/claim-codes/encrypted/{codeHash}
+GET /api/indexer/claim-codes/plan/{planId}/beneficiary/{beneficiary}
+GET /api/indexer/claim-codes/plan/{planId}/active
+GET /api/indexer/claim-codes/plan/{planId}/expired
+GET /api/indexer/claim-codes/plan/{planId}/revoked
+GET /api/indexer/claim-codes/delivery/status/{codeHash}
+GET /api/indexer/claim-codes/delivery/history/{planId}
+GET /api/indexer/claim-codes/security/audit/{codeHash}
+GET /api/indexer/claim-codes/security/audits/plan/{planId}
+GET /api/indexer/claim-codes/decryption/attempts/{codeHash}
+GET /api/indexer/claim-codes/expiring/soon
+GET /api/indexer/claim-codes/expired/recent
+GET /api/indexer/claim-codes/usage/statistics
+GET /api/indexer/claim-codes/security/overview
+
 // WebSocket endpoints
 WS /api/indexer/ws/events
 WS /api/indexer/ws/wallet-activity
@@ -985,6 +1131,13 @@ WS /api/indexer/ws/plan-creation-flow
 WS /api/indexer/ws/monthly-disbursements
 WS /api/indexer/ws/security
 WS /api/indexer/ws/inactivity-monitors
+
+// Enhanced claim code system WebSocket endpoints
+WS /api/indexer/ws/claim-codes
+WS /api/indexer/ws/claim-codes/encrypted
+WS /api/indexer/ws/claim-codes/delivery
+WS /api/indexer/ws/claim-codes/security
+WS /api/indexer/ws/claim-codes/decryption
 ```
 
 ### 5. Inactivity Detection Algorithm
@@ -1031,11 +1184,588 @@ class InactivityDetector {
 }
 ```
 
-### 6. Performance & Scalability
+### 6. Enhanced Claim Code System Workflow
+
+#### Claim Code Generation & Delivery Process
+The enhanced claim code system implements a zero-knowledge approach where asset owners never see plain text codes, ensuring maximum security while maintaining full auditability.
+
+#### Workflow Stages
+```typescript
+interface ClaimCodeWorkflow {
+  // Stage 1: Code Generation
+  generation: {
+    assetOwner: string;
+    beneficiary: string;
+    publicKey: string;
+    expirationDays: number;
+    contractCall: 'generate_encrypted_claim_code';
+    onChainEvent: 'EncryptedClaimCodeGenerated';
+  };
+  
+  // Stage 2: Code Encryption & Storage
+  encryption: {
+    plainCode: string; // Never seen by asset owner
+    encryptedCode: string; // Returned to asset owner
+    codeHash: string; // Stored on-chain
+    encryptionMethod: 'XOR' | 'RSA' | 'ECC';
+    publicKeyHash: string;
+  };
+  
+  // Stage 3: Code Delivery
+  delivery: {
+    deliveryMethod: 'email' | 'sms' | 'secure_portal' | 'api';
+    deliveryStatus: 'pending' | 'sent' | 'delivered' | 'failed';
+    deliveryMetadata: {
+      emailAddress?: string;
+      phoneNumber?: string;
+      portalUrl?: string;
+      apiEndpoint?: string;
+    };
+    retryCount: number;
+    nextRetryAt?: number;
+  };
+  
+  // Stage 4: Beneficiary Decryption
+  decryption: {
+    beneficiaryReceives: string; // Encrypted code
+    decryptionMethod: 'private_key' | 'password' | 'biometric';
+    decryptionAttempts: number;
+    lastAttempt: number;
+    success: boolean;
+    failureReason?: string;
+  };
+  
+  // Stage 5: Code Usage
+  usage: {
+    plainCode: string; // Decrypted by beneficiary
+    contractCall: 'claim_inheritance';
+    validation: 'hash_match' | 'expiration_check' | 'revocation_check';
+    onChainEvent: 'ClaimCodeUsed';
+  };
+  
+  // Stage 6: Security Audit
+  security: {
+    auditStatus: 'pending' | 'completed' | 'failed';
+    auditScore: number; // 0-100
+    auditType: 'generation' | 'delivery' | 'usage' | 'comprehensive';
+    recommendations: string[];
+    lastAudit: number;
+  };
+}
+
+interface ClaimCodeDeliveryService {
+  // Send encrypted code to beneficiary
+  async sendEncryptedCode(
+    codeHash: string,
+    encryptedCode: string,
+    beneficiary: string,
+    deliveryMethod: string
+  ): Promise<DeliveryResult>;
+  
+  // Track delivery status
+  async trackDelivery(
+    codeHash: string,
+    status: string,
+    metadata: any
+  ): Promise<void>;
+  
+  // Handle delivery failures
+  async handleDeliveryFailure(
+    codeHash: string,
+    reason: string,
+    retryCount: number
+  ): Promise<RetryStrategy>;
+  
+  // Confirm successful delivery
+  async confirmDelivery(
+    codeHash: string,
+    confirmationData: any
+  ): Promise<void>;
+}
+```
+
+#### Indexer Responsibilities for Claim Code System
+
+##### 1. Event Monitoring & Processing
+```typescript
+class ClaimCodeEventProcessor {
+  // Process encrypted claim code generation
+  async processEncryptedClaimCodeGenerated(event: EncryptedClaimCodeGenerated): Promise<void> {
+    const {
+      plan_id,
+      beneficiary,
+      code_hash,
+      generated_at,
+      expires_at,
+      generated_by,
+      encryption_method,
+      public_key_hash
+    } = event;
+    
+    // Store in encrypted_claim_codes table
+    await this.storeEncryptedClaimCode({
+      code_hash,
+      plan_id,
+      beneficiary,
+      encryption_method,
+      public_key_hash,
+      generated_at,
+      expires_at,
+      delivery_status: 'pending'
+    });
+    
+    // Trigger delivery workflow
+    await this.triggerCodeDelivery(code_hash, beneficiary);
+    
+    // Emit WebSocket notification
+    this.broadcastClaimCodeEvent('encrypted_generated', {
+      plan_id,
+      beneficiary,
+      code_hash,
+      generated_at,
+      expires_at
+    });
+  }
+  
+  // Process claim code delivery attempts
+  async processClaimCodeDeliveryAttempted(event: ClaimCodeDeliveryAttempted): Promise<void> {
+    const {
+      plan_id,
+      beneficiary,
+      code_hash,
+      delivery_method,
+      delivery_status,
+      attempted_at,
+      delivery_metadata
+    } = event;
+    
+    // Update delivery status
+    await this.updateDeliveryStatus(code_hash, delivery_status, delivery_metadata);
+    
+    // Store delivery attempt
+    await this.storeDeliveryAttempt({
+      code_hash,
+      plan_id,
+      beneficiary,
+      delivery_method,
+      delivery_status,
+      delivery_metadata,
+      attempted_at
+    });
+    
+    // Handle delivery failures
+    if (delivery_status === 'failed') {
+      await this.handleDeliveryFailure(code_hash, delivery_metadata);
+    }
+  }
+  
+  // Process claim code usage
+  async processClaimCodeUsed(event: ClaimCodeUsed): Promise<void> {
+    const { plan_id, beneficiary, code_hash, used_at, used_by } = event;
+    
+    // Mark code as used
+    await this.markCodeAsUsed(code_hash, used_at, used_by);
+    
+    // Update delivery status
+    await this.updateDeliveryStatus(code_hash, 'delivered', { used_at, used_by });
+    
+    // Trigger security audit
+    await this.triggerSecurityAudit(code_hash, 'usage');
+    
+    // Emit WebSocket notification
+    this.broadcastClaimCodeEvent('used', {
+      plan_id,
+      beneficiary,
+      code_hash,
+      used_at,
+      used_by
+    });
+  }
+}
+```
+
+##### 2. Delivery Workflow Management
+```typescript
+class ClaimCodeDeliveryManager {
+  // Initialize delivery workflow
+  async initializeDelivery(codeHash: string, beneficiary: string): Promise<void> {
+    const code = await this.getEncryptedClaimCode(codeHash);
+    const deliveryMethod = await this.determineDeliveryMethod(beneficiary);
+    
+    // Create delivery record
+    await this.createDeliveryRecord({
+      code_hash: codeHash,
+      plan_id: code.plan_id,
+      beneficiary: beneficiary,
+      delivery_method: deliveryMethod,
+      delivery_status: 'pending',
+      delivery_metadata: await this.getDeliveryMetadata(beneficiary, deliveryMethod)
+    });
+    
+    // Trigger first delivery attempt
+    await this.attemptDelivery(codeHash, deliveryMethod);
+  }
+  
+  // Attempt code delivery
+  async attemptDelivery(codeHash: string, method: string): Promise<DeliveryResult> {
+    try {
+      const code = await this.getEncryptedClaimCode(codeHash);
+      const delivery = await this.getDeliveryRecord(codeHash);
+      
+      let result: DeliveryResult;
+      
+      switch (method) {
+        case 'email':
+          result = await this.deliverViaEmail(code, delivery);
+          break;
+        case 'sms':
+          result = await this.deliverViaSMS(code, delivery);
+          break;
+        case 'secure_portal':
+          result = await this.deliverViaPortal(code, delivery);
+          break;
+        case 'api':
+          result = await this.deliverViaAPI(code, delivery);
+          break;
+        default:
+          throw new Error(`Unsupported delivery method: ${method}`);
+      }
+      
+      // Update delivery status
+      await this.updateDeliveryStatus(codeHash, result.status, result.metadata);
+      
+      // Emit blockchain event
+      await this.emitDeliveryEvent(codeHash, result.status, result.metadata);
+      
+      return result;
+      
+    } catch (error) {
+      // Handle delivery failure
+      await this.handleDeliveryFailure(codeHash, error.message);
+      throw error;
+    }
+  }
+  
+  // Handle delivery failures with retry logic
+  async handleDeliveryFailure(codeHash: string, reason: string): Promise<void> {
+    const delivery = await this.getDeliveryRecord(codeHash);
+    const retryCount = delivery.retry_count + 1;
+    
+    if (retryCount <= this.maxRetries) {
+      // Schedule retry
+      const nextRetryAt = this.calculateNextRetryTime(retryCount);
+      await this.scheduleRetry(codeHash, nextRetryAt, retryCount);
+      
+      // Emit retry event
+      await this.emitRetryEvent(codeHash, retryCount, nextRetryAt);
+      
+    } else {
+      // Max retries exceeded
+      await this.markDeliveryAsFailed(codeHash, reason);
+      await this.triggerManualIntervention(codeHash, reason);
+      
+      // Emit failure event
+      await this.emitFailureEvent(codeHash, reason);
+    }
+  }
+}
+```
+
+##### 3. Security Monitoring & Auditing
+```typescript
+class ClaimCodeSecurityMonitor {
+  // Monitor for suspicious activities
+  async monitorSecurityEvents(): Promise<void> {
+    // Check for multiple failed decryption attempts
+    await this.checkFailedDecryptionAttempts();
+    
+    // Monitor for unusual delivery patterns
+    await this.checkDeliveryPatterns();
+    
+    // Validate code expiration compliance
+    await this.checkExpirationCompliance();
+    
+    // Audit encryption method usage
+    await this.auditEncryptionMethods();
+  }
+  
+  // Security audit for claim codes
+  async performSecurityAudit(codeHash: string, auditType: string): Promise<AuditResult> {
+    const code = await this.getEncryptedClaimCode(codeHash);
+    const delivery = await this.getDeliveryRecord(codeHash);
+    const usage = await this.getCodeUsage(codeHash);
+    
+    let auditScore = 100;
+    const findings: string[] = [];
+    const recommendations: string[] = [];
+    
+    // Audit generation security
+    if (code.encryption_method === 'XOR') {
+      auditScore -= 20;
+      findings.push('Using simplified XOR encryption (development only)');
+      recommendations.push('Upgrade to proper asymmetric encryption for production');
+    }
+    
+    // Audit delivery security
+    if (delivery.delivery_status === 'failed') {
+      auditScore -= 15;
+      findings.push('Delivery failures detected');
+      recommendations.push('Implement robust delivery retry mechanisms');
+    }
+    
+    // Audit usage patterns
+    if (usage.attempts > 3) {
+      auditScore -= 10;
+      findings.push('Multiple failed usage attempts');
+      recommendations.push('Implement rate limiting and monitoring');
+    }
+    
+    // Store audit result
+    await this.storeAuditResult({
+      code_hash: codeHash,
+      plan_id: code.plan_id,
+      beneficiary: code.beneficiary,
+      audit_type: auditType,
+      audit_result: auditScore >= 80 ? 'pass' : auditScore >= 60 ? 'warning' : 'fail',
+      audit_score: auditScore,
+      audit_details: { findings, recommendations },
+      audit_timestamp: Date.now()
+    });
+    
+    return { auditScore, findings, recommendations };
+  }
+}
+```
+
+##### 4. Real-Time Notifications & WebSocket Events
+```typescript
+class ClaimCodeNotificationService {
+  // Broadcast claim code events via WebSocket
+  broadcastClaimCodeEvent(eventType: string, data: any): void {
+    const message: WebSocketMessage = {
+      type: 'claim_code_event',
+      data: {
+        event_type: eventType,
+        ...data,
+        timestamp: Date.now()
+      }
+    };
+    
+    // Broadcast to relevant WebSocket channels
+    this.broadcastToChannel(`claim-codes`, message);
+    this.broadcastToChannel(`claim-codes/${data.plan_id}`, message);
+    this.broadcastToChannel(`claim-codes/beneficiary/${data.beneficiary}`, message);
+  }
+  
+  // Send real-time delivery updates
+  sendDeliveryUpdate(codeHash: string, status: string, metadata: any): void {
+    this.broadcastClaimCodeEvent('delivery_update', {
+      code_hash: codeHash,
+      delivery_status: status,
+      delivery_metadata: metadata,
+      timestamp: Date.now()
+    });
+  }
+  
+  // Send security alerts
+  sendSecurityAlert(codeHash: string, alertType: string, severity: string, details: any): void {
+    this.broadcastClaimCodeEvent('security_alert', {
+      code_hash: codeHash,
+      alert_type: alertType,
+      severity: severity,
+      details: details,
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+##### 5. Data Consistency & Synchronization
+```typescript
+class ClaimCodeDataSynchronizer {
+  // Sync on-chain events with off-chain database
+  async syncClaimCodeEvents(): Promise<void> {
+    const lastSyncedBlock = await this.getLastSyncedBlock('claim_codes');
+    const currentBlock = await this.getCurrentBlockNumber();
+    
+    // Get events since last sync
+    const events = await this.getClaimCodeEvents(lastSyncedBlock, currentBlock);
+    
+    for (const event of events) {
+      try {
+        // Process event and update database
+        await this.processClaimCodeEvent(event);
+        
+        // Update sync status
+        await this.updateSyncStatus('claim_codes', event.blockNumber);
+        
+      } catch (error) {
+        // Log error and continue with next event
+        await this.logSyncError('claim_codes', event, error);
+      }
+    }
+  }
+  
+  // Verify data consistency between on-chain and off-chain
+  async verifyClaimCodeConsistency(): Promise<ConsistencyReport> {
+    const onChainCodes = await this.getOnChainClaimCodes();
+    const offChainCodes = await this.getOffChainClaimCodes();
+    
+    const inconsistencies: string[] = [];
+    const missingCodes: string[] = [];
+    const extraCodes: string[] = [];
+    
+    // Check for missing codes
+    for (const onChainCode of onChainCodes) {
+      const offChainCode = offChainCodes.find(c => c.code_hash === onChainCode.code_hash);
+      if (!offChainCode) {
+        missingCodes.push(onChainCode.code_hash);
+        inconsistencies.push(`Missing off-chain record for ${onChainCode.code_hash}`);
+      }
+    }
+    
+    // Check for extra codes
+    for (const offChainCode of offChainCodes) {
+      const onChainCode = onChainCodes.find(c => c.code_hash === offChainCode.code_hash);
+      if (!onChainCode) {
+        extraCodes.push(offChainCode.code_hash);
+        inconsistencies.push(`Extra off-chain record for ${offChainCode.code_hash}`);
+      }
+    }
+    
+    return {
+      totalOnChain: onChainCodes.length,
+      totalOffChain: offChainCodes.length,
+      inconsistencies,
+      missingCodes,
+      extraCodes,
+      isConsistent: inconsistencies.length === 0
+    };
+  }
+}
+```
+
+#### Integration with Backend Services
+
+##### 1. Backend API Integration
+```typescript
+interface BackendClaimCodeAPI {
+  // Generate encrypted claim code
+  POST /api/claim-codes/generate
+  Body: {
+    plan_id: string;
+    beneficiary: string;
+    public_key: string;
+    expires_in: number;
+  }
+  Response: {
+    encrypted_code: string;
+    code_hash: string;
+    expires_at: number;
+    delivery_status: string;
+  }
+  
+  // Get claim code status
+  GET /api/claim-codes/{codeHash}/status
+  Response: {
+    code_hash: string;
+    plan_id: string;
+    beneficiary: string;
+    is_used: boolean;
+    generated_at: number;
+    expires_at: number;
+    delivery_status: string;
+    delivery_method: string;
+    security_audit_status: string;
+    audit_score: number;
+  }
+  
+  // Get delivery history
+  GET /api/claim-codes/{codeHash}/delivery/history
+  Response: {
+    deliveries: Array<{
+      delivery_method: string;
+      delivery_status: string;
+      attempted_at: number;
+      confirmed_at?: number;
+      failure_reason?: string;
+      retry_count: number;
+    }>
+  }
+  
+  // Trigger manual delivery
+  POST /api/claim-codes/{codeHash}/deliver
+  Body: {
+    delivery_method: string;
+    delivery_metadata: any;
+  }
+  Response: {
+    delivery_id: string;
+    status: string;
+    estimated_delivery_time: number;
+  }
+}
+```
+
+##### 2. Real-Time Updates via WebSocket
+```typescript
+interface ClaimCodeWebSocketEvents {
+  // Encrypted claim code generated
+  'encrypted_claim_code_generated': {
+    plan_id: string;
+    beneficiary: string;
+    code_hash: string;
+    generated_at: number;
+    expires_at: number;
+    encryption_method: string;
+  };
+  
+  // Delivery status update
+  'delivery_update': {
+    code_hash: string;
+    delivery_status: string;
+    delivery_method: string;
+    delivery_metadata: any;
+    timestamp: number;
+  };
+  
+  // Code usage
+  'claim_code_used': {
+    plan_id: string;
+    beneficiary: string;
+    code_hash: string;
+    used_at: number;
+    used_by: string;
+  };
+  
+  // Security audit result
+  'security_audit': {
+    code_hash: string;
+    audit_type: string;
+    audit_result: string;
+    audit_score: number;
+    recommendations: string[];
+    timestamp: number;
+  };
+  
+  // Security alert
+  'security_alert': {
+    code_hash: string;
+    alert_type: string;
+    severity: string;
+    details: any;
+    timestamp: number;
+  };
+}
+```
+
+This enhanced claim code system ensures that the indexer can properly monitor, track, and manage the entire lifecycle of encrypted claim codes while maintaining the highest standards of security, auditability, and real-time synchronization between on-chain and off-chain systems. 
+
+### 7. Performance & Scalability
 
 #### Indexing Performance
 - **Block Processing**: Process 100+ blocks per second
-- **Event Parsing**: Parse 1000+ events per second
+- **Event Processing**: Parse 1000+ events per second
 - **Database Writes**: Handle 10,000+ writes per second
 - **Real-Time Updates**: < 100ms latency for updates
 
@@ -1124,7 +1854,7 @@ impl DatabaseManager {
 }
 ```
 
-### 7. Error Handling & Recovery
+### 8. Error Handling & Recovery
 
 #### Failure Scenarios
 - **Blockchain Node Failure**: Fallback to multiple RPC endpoints
@@ -1164,7 +1894,7 @@ class IndexerRecovery {
 }
 ```
 
-### 8. Hybrid System Monitoring & Alerting
+### 9. Hybrid System Monitoring & Alerting
 
 #### Cross-System Health Checks
 - **Block Processing Rate**: Monitor blocks processed per second
@@ -1295,7 +2025,7 @@ class AlertingService {
 }
 ```
 
-### 9. Enhanced Monitoring & Analytics
+### 10. Enhanced Monitoring & Analytics
 
 #### Performance Metrics
 - **Block Processing**: Process 100+ blocks per second
@@ -1305,6 +2035,7 @@ class AlertingService {
 - **Plan Creation Flow Metrics**: Step completion rates and timing
 - **Monthly Disbursement Metrics**: Execution success rates and performance
 - **Security Operation Metrics**: Response times and effectiveness
+- **Claim Code System Metrics**: Generation, delivery, and usage rates
 
 #### Enhanced Usage Analytics
 - **Plan Creation Flow Analysis**: Step-by-step completion patterns, validation success rates, time per step
@@ -1313,7 +2044,7 @@ class AlertingService {
 - **Inactivity Monitoring Metrics**: Trigger frequency, notification success rates, response times
 - **Escrow Management Analytics**: Lock/release patterns, fee structures, tax liability trends
 - **Swap Execution Analytics**: Success rates, gas optimization, DEX routing efficiency
-- **Claim Code Usage**: Generation patterns, usage rates, expiration management
+- **Claim Code Usage**: Generation patterns, usage rates, expiration management, delivery success rates
 
 #### Cross-System Health Monitoring
 - **Blockchain Health**: Block processing rate, event processing rate, RPC latency
@@ -1321,7 +2052,7 @@ class AlertingService {
 - **Data Consistency**: On-chain to off-chain sync, data consistency score, sync queue length
 - **Overall System Health**: System status, critical issues, recommendations
 
-### 10. Security & Privacy
+### 11. Security & Privacy
 
 #### Data Protection
 - **Encryption**: Encrypt sensitive data at rest
@@ -1335,7 +2066,7 @@ class AlertingService {
 - **Replay Protection**: Prevent duplicate event processing
 - **Signature Verification**: Validate event signatures
 
-### 11. Integration Points
+### 12. Integration Points
 
 #### Backend Integration
 - **Event Notifications**: Real-time updates to backend services
@@ -1349,7 +2080,7 @@ class AlertingService {
 - **Dashboard Data**: Real-time dashboard updates
 - **Notification System**: User alerts and updates
 
-### 12. Development & Testing
+### 13. Development & Testing
 
 #### Local Development
 - **Local Blockchain**: Ganache or Hardhat for testing
@@ -1363,7 +2094,7 @@ class AlertingService {
 - **Performance Tests**: Load and stress testing
 - **Security Tests**: Vulnerability assessment
 
-### 13. Deployment & Operations
+### 14. Deployment & Operations
 
 #### Rust Dependencies (Cargo.toml)
 ```toml
@@ -1459,5 +2190,12 @@ tokio-tungstenite = "0.20"
 - **Real-time data validation** with consistency checks
 - **Cross-system health monitoring** with alerting
 - **Automated recovery procedures** for data inconsistencies
+
+### 7. **Advanced Claim Code System**
+- **Zero-knowledge encrypted claim codes** with maximum security
+- **Comprehensive delivery workflow** with multiple delivery methods
+- **Real-time delivery tracking** with retry mechanisms
+- **Security auditing and monitoring** with automated alerts
+- **Full lifecycle management** from generation to usage
 
 This enhanced indexer implementation ensures that all new InheritX features are properly monitored, indexed, and synchronized between on-chain and off-chain systems while maintaining the highest standards of performance, reliability, and data consistency. 
