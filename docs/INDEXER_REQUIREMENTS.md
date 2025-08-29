@@ -94,6 +94,55 @@ event BeneficiaryClaimed {
     net_amount: u256
 }
 
+event BeneficiaryModified {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    modification_type: ByteArray, // "percentage_update", "relationship_update", "age_update"
+    modified_at: u64,
+    modified_by: ContractAddress,
+    old_value: ByteArray,
+    new_value: ByteArray
+}
+
+// ================ BALANCE VALIDATION EVENTS ================
+event BalanceValidationFailed {
+    plan_id: u256,
+    user_address: ContractAddress,
+    asset_type: u8,
+    required_amount: u256,
+    available_balance: u256,
+    validation_time: u64
+}
+
+// ================ PLAN EDITING EVENTS ================
+event PlanTimeframeExtended {
+    plan_id: u256,
+    extended_by: ContractAddress,
+    additional_time: u64,
+    new_active_date: u64,
+    extended_at: u64
+}
+
+event PlanParametersUpdated {
+    plan_id: u256,
+    updated_by: ContractAddress,
+    old_security_level: u8,
+    new_security_level: u8,
+    old_auto_execute: bool,
+    new_auto_execute: bool,
+    old_guardian: ContractAddress,
+    new_guardian: ContractAddress,
+    updated_at: u64
+}
+
+event InactivityThresholdUpdated {
+    plan_id: u256,
+    updated_by: ContractAddress,
+    old_threshold: u64,
+    new_threshold: u64,
+    updated_at: u64
+}
+
 // ================ CLAIM CODE EVENTS ================
 event ClaimCodeGenerated {
     plan_id: u256,
@@ -1184,10 +1233,10 @@ class InactivityDetector {
 }
 ```
 
-### 6. Enhanced Claim Code System Workflow
+### 6. Enhanced Claim Code System Workflow ⭐ UPDATED
 
 #### Claim Code Generation & Delivery Process
-The enhanced claim code system implements a zero-knowledge approach where asset owners never see plain text codes, ensuring maximum security while maintaining full auditability.
+The enhanced claim code system implements a hash-based validation approach where claim codes are generated off-chain and validated on-chain using cryptographic hashes, ensuring maximum security while maintaining full auditability.
 
 #### Workflow Stages
 ```typescript
@@ -1196,19 +1245,18 @@ interface ClaimCodeWorkflow {
   generation: {
     assetOwner: string;
     beneficiary: string;
-    publicKey: string;
     expirationDays: number;
-    contractCall: 'generate_encrypted_claim_code';
-    onChainEvent: 'EncryptedClaimCodeGenerated';
+    contractCall: 'store_claim_code_hash';
+    onChainEvent: 'ClaimCodeStored';
   };
   
-  // Stage 2: Code Encryption & Storage
-  encryption: {
-    plainCode: string; // Never seen by asset owner
-    encryptedCode: string; // Returned to asset owner
-    codeHash: string; // Stored on-chain
-    encryptionMethod: 'XOR' | 'RSA' | 'ECC';
-    publicKeyHash: string;
+  // Stage 2: Hash Storage & Validation
+  storage: {
+    plainCode: string; // Generated off-chain, never stored on-chain
+    codeHash: string; // Stored on-chain for validation
+    hashAlgorithm: 'SHA256' | 'Keccak256' | 'Custom';
+    storageMethod: 'on_chain_hash';
+    validationType: 'hash_match';
   };
   
   // Stage 3: Code Delivery
@@ -1225,22 +1273,22 @@ interface ClaimCodeWorkflow {
     nextRetryAt?: number;
   };
   
-  // Stage 4: Beneficiary Decryption
-  decryption: {
-    beneficiaryReceives: string; // Encrypted code
-    decryptionMethod: 'private_key' | 'password' | 'biometric';
-    decryptionAttempts: number;
-    lastAttempt: number;
-    success: boolean;
-    failureReason?: string;
+  // Stage 4: Beneficiary Receipt
+  receipt: {
+    beneficiaryReceives: string; // Plain claim code
+    storageMethod: 'secure_storage' | 'password_manager' | 'hardware_wallet';
+    receiptConfirmation: boolean;
+    receiptTimestamp: number;
+    securityRecommendations: string[];
   };
   
-  // Stage 5: Code Usage
+  // Stage 5: Code Usage & Validation
   usage: {
-    plainCode: string; // Decrypted by beneficiary
+    plainCode: string; // Used by beneficiary
     contractCall: 'claim_inheritance';
-    validation: 'hash_match' | 'expiration_check' | 'revocation_check';
+    validation: 'hash_match' | 'expiration_check' | 'usage_status' | 'revocation_check';
     onChainEvent: 'ClaimCodeUsed';
+    validationLayers: string[];
   };
   
   // Stage 6: Security Audit
@@ -1250,14 +1298,14 @@ interface ClaimCodeWorkflow {
     auditType: 'generation' | 'delivery' | 'usage' | 'comprehensive';
     recommendations: string[];
     lastAudit: number;
+    securityEvents: string[];
   };
 }
 
 interface ClaimCodeDeliveryService {
-  // Send encrypted code to beneficiary
-  async sendEncryptedCode(
-    codeHash: string,
-    encryptedCode: string,
+  // Send plain code to beneficiary
+  async sendClaimCode(
+    plainCode: string,
     beneficiary: string,
     deliveryMethod: string
   ): Promise<DeliveryResult>;

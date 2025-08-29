@@ -75,16 +75,22 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 - **Enhanced Claim Code System**: Zero-knowledge encrypted claim codes with contract-generated randomness
 - Wallet inactivity monitoring
 - Multi-asset support (STRK, USDT, USDC, NFT)
+- **Percentage-Based Beneficiary Allocation**: Support for multiple beneficiaries with different percentage shares (0-100%)
+- **Balance Validation**: On-chain validation of user token balances before plan creation
+- **Enhanced Beneficiary Management**: Structured beneficiary data with percentages, ages, relationships, and email hashes
+- **Plan Editing & Modification**: Extend timeframes, update parameters, modify inactivity thresholds, and add/remove beneficiaries
 
 **Enhanced Claim Code System**:
-- **Contract-Generated Randomness**: 32-byte cryptographically secure codes generated on-chain
-- **Zero-Knowledge Encryption**: Asset owners never see plain text codes, only encrypted versions
-- **Public Key Encryption**: Codes encrypted with beneficiary's public key for secure delivery
-- **Automatic Expiration**: Time-based code expiration with configurable durations
-- **Security Auditing**: Comprehensive audit trail for all claim code operations
-- **Delivery Tracking**: Real-time monitoring of code delivery and usage patterns
+- **Hash-Based Validation**: Secure cryptographic verification of claim codes using on-chain hashing
+- **Time-Based Security**: Configurable expiration and activation controls with contract-level validation
+- **Usage Tracking**: Prevents duplicate usage and tracks claim history with comprehensive state management
+- **Revocation Support**: Admin-controlled claim code invalidation for security management
+- **Multi-Layer Protection**: Multiple validation layers including hash matching, expiration checks, and usage status
+- **Off-Chain Generation**: Secure off-chain claim code creation with on-chain hash validation
+- **Event Logging**: Comprehensive audit trail for all claim code operations including storage, usage, expiration, and revocation
+- **Security Controls**: Contract-level security settings for minimum timeframes and access controls
 
-**Current Status**: ✅ Implemented with enhanced claim code system
+**Current Status**: ✅ Implemented with enhanced claim code system, percentage-based allocation, balance validation, and enhanced beneficiary management
 **Improvement Needed**: Production hardening of cryptographic functions
 
 ### 2. Backend API
@@ -152,27 +158,27 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 8. Pinata stores encrypted beneficiary information (Off-Chain)
 ```
 
-### Pattern 2: Enhanced Claim Code Generation & Delivery (On-Chain → Off-Chain → Beneficiary)
+### Pattern 2: Enhanced Claim Code Generation & Delivery (Off-Chain → On-Chain → Beneficiary)
 ```
-1. Asset owner calls generate_encrypted_claim_code() (Off-Chain → On-Chain)
+1. Asset owner generates claim code off-chain (Off-Chain)
    ↓
-2. Smart contract generates 32-byte random code (On-Chain)
+2. Asset owner calls store_claim_code_hash() with code hash (Off-Chain → On-Chain)
    ↓
-3. Smart contract hashes code for on-chain storage (On-Chain)
+3. Smart contract stores hash and validates input (On-Chain)
    ↓
-4. Smart contract encrypts code with beneficiary's public key (On-Chain)
+4. Smart contract emits ClaimCodeStored event (On-Chain)
    ↓
-5. Smart contract stores hash and returns encrypted code (On-Chain → Off-Chain)
+5. Indexer monitors ClaimCodeStored event (On-Chain → Off-Chain)
    ↓
-6. Indexer monitors EncryptedClaimCodeGenerated event (On-Chain → Off-Chain)
+6. Backend receives hash confirmation and initiates delivery (Off-Chain)
    ↓
-7. Backend receives encrypted code and initiates delivery (Off-Chain)
+7. Backend sends plain claim code to beneficiary via secure channel (Off-Chain)
    ↓
-8. Backend sends encrypted code to beneficiary via secure channel (Off-Chain)
+8. Beneficiary receives plain code and stores securely (Beneficiary)
    ↓
-9. Beneficiary decrypts code using private key (Beneficiary)
+9. Beneficiary uses plain code to claim inheritance (Beneficiary → On-Chain)
    ↓
-10. Beneficiary uses plain code to claim inheritance (Beneficiary → On-Chain)
+10. Smart contract validates code hash and releases assets (On-Chain)
 ```
 
 ### Pattern 3: Inheritance Claim Process (Off-Chain → On-Chain → Off-Chain)

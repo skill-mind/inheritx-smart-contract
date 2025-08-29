@@ -674,7 +674,7 @@ pub async fn optimize_dex_routing(
 
 ### 9. Enhanced Claim Code and Beneficiary Management Service
 
-#### 9.1 Claim Code Generation and Management
+#### 9.1 Enhanced Claim Code Generation and Management ⭐ UPDATED
 ```rust
 pub async fn generate_claim_code(
     plan_id: u256,
@@ -682,20 +682,23 @@ pub async fn generate_claim_code(
     expires_in: u64,
     user_context: UserContext,
 ) -> Result<String, BackendError> {
-    // Generate secure claim code
-    // Set expiration parameters
-    // Store claim code hash on-chain
-    // Send code to beneficiary
-    // Log code generation
+    // Generate secure claim code off-chain
+    // Calculate hash for on-chain storage
+    // Store claim code hash on-chain via store_claim_code_hash
+    // Send plain code to beneficiary via secure channel
+    // Log code generation and delivery
 }
 ```
 
 **Responsibilities:**
-- Secure claim code generation
-- Expiration management
-- On-chain code storage
-- Beneficiary communication
-- Security audit logging
+- **Off-Chain Code Generation**: Secure claim code creation using cryptographic libraries
+- **Hash Calculation**: Generate hash for on-chain storage and validation
+- **On-Chain Storage**: Store hash via `store_claim_code_hash` function
+- **Secure Delivery**: Send plain code to beneficiary via encrypted channels
+- **Security Audit Logging**: Comprehensive logging of all claim code operations
+- **Time-Based Management**: Handle expiration and activation timeframes
+- **Usage Tracking**: Monitor claim code usage and prevent duplicates
+- **Revocation Support**: Handle admin-controlled claim code invalidation
 
 #### 9.2 Beneficiary Management and Validation
 ```rust
@@ -1462,4 +1465,261 @@ This enhanced backend implementation provides a comprehensive, scalable foundati
 - **Security event logging** with alert systems
 - **User behavior analysis** with pattern recognition
 
-This implementation ensures that the InheritX platform provides a secure, compliant, and user-friendly experience while maintaining the highest standards of security and regulatory compliance. The modular architecture allows for easy scaling and feature additions as the platform evolves. 
+This implementation ensures that the InheritX platform provides a secure, compliant, and user-friendly experience while maintaining the highest standards of security and regulatory compliance. The modular architecture allows for easy scaling and feature additions as the platform evolves.
+
+## Smart Contract Integration
+
+### New Smart Contract Functions
+
+The backend now integrates with the following new smart contract functions for enhanced inheritance plan management:
+
+#### 1. **Percentage-Based Plan Creation**
+```rust
+// Create inheritance plan with percentage-based beneficiary allocations
+pub async fn create_inheritance_plan_with_percentages(
+    &self,
+    beneficiary_data: Vec<BeneficiaryData>,
+    asset_type: AssetType,
+    asset_amount: u256,
+    nft_token_id: u256,
+    nft_contract: ContractAddress,
+    timeframe: u64,
+    guardian: ContractAddress,
+    encrypted_details: String,
+    security_level: u8,
+    auto_execute: bool,
+    emergency_contacts: Vec<ContractAddress>,
+) -> Result<u256, Box<dyn std::error::Error>> {
+    // Validate beneficiary data and percentages
+    self.validate_beneficiary_percentages(&beneficiary_data)?;
+    
+    // Call smart contract function
+    let plan_id = self.smart_contract
+        .create_inheritance_plan_with_percentages(
+            beneficiary_data,
+            asset_type as u8,
+            asset_amount,
+            nft_token_id,
+            nft_contract,
+            timeframe,
+            guardian,
+            encrypted_details,
+            security_level,
+            auto_execute,
+            emergency_contacts,
+        )
+        .await?;
+    
+    Ok(plan_id)
+}
+```
+
+#### 2. **Beneficiary Percentage Updates**
+```rust
+// Update beneficiary percentages for existing plans
+pub async fn update_beneficiary_percentages(
+    &self,
+    plan_id: u256,
+    beneficiary_data: Vec<BeneficiaryData>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Validate updated percentages sum to 100%
+    self.validate_beneficiary_percentages(&beneficiary_data)?;
+    
+    // Update smart contract
+    self.smart_contract
+        .update_beneficiary_percentages(plan_id, beneficiary_data)
+        .await?;
+    
+    // Update database
+    self.database.update_beneficiary_percentages(plan_id, &beneficiary_data).await?;
+    
+    Ok(())
+}
+```
+
+#### 3. **Balance Validation Integration**
+```rust
+// Validate user has sufficient balance before plan creation
+pub async fn validate_user_balance(
+    &self,
+    user_address: ContractAddress,
+    asset_type: AssetType,
+    asset_amount: u256,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    match asset_type {
+        AssetType::STRK => {
+            let balance = self.strk_token.balance_of(user_address).await?;
+            Ok(balance >= asset_amount)
+        },
+        AssetType::USDT => {
+            let balance = self.usdt_token.balance_of(user_address).await?;
+            Ok(balance >= asset_amount)
+        },
+        AssetType::USDC => {
+            let balance = self.usdc_token.balance_of(user_address).await?;
+            Ok(balance >= asset_amount)
+        },
+        AssetType::NFT => {
+            // NFT ownership validation handled separately
+            Ok(true)
+        }
+    }
+}
+```
+
+#### 4. **Plan Editing Integration** ⭐ NEW
+```rust
+// Extend plan timeframe
+pub async fn extend_plan_timeframe(
+    &self,
+    plan_id: u256,
+    additional_time: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    self.smart_contract
+        .extend_plan_timeframe(plan_id, additional_time)
+        .await?;
+    
+    // Update database with new timeframe
+    self.database.update_plan_timeframe(plan_id, additional_time).await?;
+    
+    Ok(())
+}
+
+// Update plan parameters
+pub async fn update_plan_parameters(
+    &self,
+    plan_id: u256,
+    new_security_level: u8,
+    new_auto_execute: bool,
+    new_guardian: ContractAddress,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Validate security level
+    if new_security_level < 1 || new_security_level > 5 {
+        return Err(Box::new(ValidationError::InvalidSecurityLevel));
+    }
+    
+    self.smart_contract
+        .update_plan_parameters(plan_id, new_security_level, new_auto_execute, new_guardian)
+        .await?;
+    
+    // Update database
+    self.database.update_plan_parameters(plan_id, new_security_level, new_auto_execute, new_guardian).await?;
+    
+    Ok(())
+}
+
+// Update inactivity threshold
+pub async fn update_inactivity_threshold(
+    &self,
+    plan_id: u256,
+    new_threshold: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Validate threshold (max 6 months)
+    if new_threshold == 0 || new_threshold > 15768000 {
+        return Err(Box::new(ValidationError::InvalidInactivityThreshold));
+    }
+    
+    self.smart_contract
+        .update_inactivity_threshold(plan_id, new_threshold)
+        .await?;
+    
+    // Update database
+    self.database.update_inactivity_threshold(plan_id, new_threshold).await?;
+    
+    Ok(())
+}
+```
+
+### Data Structures
+
+#### **BeneficiaryData**
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BeneficiaryData {
+    pub address: ContractAddress,
+    pub percentage: u8, // Share percentage (0-100)
+    pub email_hash: String, // Hash of beneficiary email
+    pub age: u8, // Age for minor protection
+    pub relationship: String, // Encrypted relationship information
+}
+```
+
+#### **Validation Functions**
+```rust
+impl BeneficiaryData {
+    // Validate beneficiary data
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.percentage == 0 || self.percentage > 100 {
+            return Err(ValidationError::InvalidPercentage);
+        }
+        if self.age > 120 {
+            return Err(ValidationError::InvalidAge);
+        }
+        if self.email_hash.is_empty() {
+            return Err(ValidationError::EmptyEmailHash);
+        }
+        Ok(())
+    }
+}
+
+// Validate total percentage equals 100%
+pub fn validate_total_percentage(
+    beneficiaries: &[BeneficiaryData]
+) -> Result<(), ValidationError> {
+    let total: u8 = beneficiaries.iter()
+        .map(|b| b.percentage)
+        .sum();
+    
+    if total != 100 {
+        return Err(ValidationError::InvalidTotalPercentage);
+    }
+    Ok(())
+}
+```
+
+### Error Handling
+
+The smart contract integration includes comprehensive error handling for the new functionality:
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum SmartContractError {
+    #[error("Insufficient user balance: {asset_type}")]
+    InsufficientUserBalance { asset_type: AssetType },
+    
+    #[error("Invalid beneficiary percentages: total must equal 100%")]
+    InvalidBeneficiaryPercentages,
+    
+    #[error("Beneficiary not found: {address}")]
+    BeneficiaryNotFound { address: ContractAddress },
+    
+    #[error("Plan not found: {plan_id}")]
+    PlanNotFound { plan_id: u256 },
+    
+    #[error("Unauthorized access: {operation}")]
+    Unauthorized { operation: String },
+    
+    #[error("Invalid security level: {level} (must be 1-5)")]
+    InvalidSecurityLevel { level: u8 },
+    
+    #[error("Invalid inactivity threshold: {threshold} (must be > 0 and ≤ 6 months)")]
+    InvalidInactivityThreshold { threshold: u64 },
+    
+    #[error("Plan not in active state: {status}")]
+    PlanNotActive { status: String },
+}
+```
+
+### Security Features
+
+1. **Balance Validation**: Prevents creation of plans with insufficient funds
+2. **Percentage Validation**: Ensures beneficiary allocations sum to exactly 100%
+3. **Access Control**: Only plan owners can modify beneficiary percentages
+4. **Data Integrity**: All changes are recorded on-chain with event emission
+5. **Audit Trail**: Complete history of all beneficiary modifications
+6. **Plan Editing Security**: ⭐ NEW
+   - Only plan owners can modify plan parameters
+   - Timeframe extensions limited to maximum 1 year
+   - Security level validation (1-5 range)
+   - Inactivity threshold validation (max 6 months)
+   - All modifications require plan to be in Active state 

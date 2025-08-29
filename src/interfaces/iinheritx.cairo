@@ -95,6 +95,31 @@ pub trait IInheritX<TContractState> {
         ref self: TContractState, plan_id: u256, beneficiary_data: Array<BeneficiaryData>,
     );
 
+    // ================ PLAN EDITING FUNCTIONS ================
+
+    /// @notice Extends the timeframe for an inheritance plan
+    /// @param plan_id ID of the plan to extend
+    /// @param additional_time Additional time in seconds to add
+    fn extend_plan_timeframe(ref self: TContractState, plan_id: u256, additional_time: u64);
+
+    /// @notice Updates plan parameters (security level, auto-execute, guardian)
+    /// @param plan_id ID of the plan to update
+    /// @param new_security_level New security level (1-5)
+    /// @param new_auto_execute New auto-execute setting
+    /// @param new_guardian New guardian address (0 for no guardian)
+    fn update_plan_parameters(
+        ref self: TContractState,
+        plan_id: u256,
+        new_security_level: u8,
+        new_auto_execute: bool,
+        new_guardian: ContractAddress,
+    );
+
+    /// @notice Updates the inactivity threshold for a plan
+    /// @param plan_id ID of the plan to update
+    /// @param new_threshold New inactivity threshold in seconds
+    fn update_inactivity_threshold(ref self: TContractState, plan_id: u256, new_threshold: u64);
+
     /// @notice Claims assets from an inheritance plan using claim code
     /// @param plan_id ID of the plan to claim from
     /// @param claim_code Secret claim code hash
@@ -253,6 +278,10 @@ pub trait IInheritX<TContractState> {
     /// @notice Gets claim code details
     /// @param code_hash Hash of the claim code
     fn get_claim_code(self: @TContractState, code_hash: ByteArray) -> ClaimCode;
+
+    /// @notice Hashes a claim code for validation
+    /// @param code The claim code to hash
+    fn hash_claim_code(self: @TContractState, code: ByteArray) -> ByteArray;
 
     /// @notice Gets inactivity monitor for a wallet
     /// @param wallet_address Wallet address

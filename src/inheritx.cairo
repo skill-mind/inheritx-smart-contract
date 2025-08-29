@@ -225,6 +225,9 @@ pub mod InheritX {
         DisbursementBeneficiaryRemoved: DisbursementBeneficiaryRemoved,
         ClaimCodeGenerated: ClaimCodeGenerated,
         InheritancePlanCreated: InheritancePlanCreated,
+        PlanTimeframeExtended: PlanTimeframeExtended,
+        PlanParametersUpdated: PlanParametersUpdated,
+        InactivityThresholdUpdated: InactivityThresholdUpdated,
     }
 
     #[constructor]
@@ -650,13 +653,30 @@ pub mod InheritX {
 
             let caller = get_caller_address();
 
-            // Validate claim code (simplified)
-            let plan = self.inheritance_plans.read(plan_id);
-            assert(plan.claim_code_hash == claim_code, ERR_INVALID_CLAIM_CODE);
+            // Validate claim code by hashing input and comparing with stored hash
+            let stored_claim_code = self.claim_codes.read(plan_id);
+            let input_hash = ClaimCodeInternalTraitImpl::hash_claim_code(@self, claim_code);
+            assert(stored_claim_code.code_hash == input_hash, ERR_INVALID_CLAIM_CODE);
+
+            // Check if claim code is expired
+            let current_time = get_block_timestamp();
+            assert(current_time <= stored_claim_code.expires_at, ERR_CLAIM_CODE_EXPIRED);
+
+            // Check if claim code is already used
+            assert(!stored_claim_code.is_used, ERR_CLAIM_CODE_ALREADY_USED);
+
+            // Check if claim code is revoked
+            assert(!stored_claim_code.is_revoked, ERR_CLAIM_CODE_REVOKED);
 
             // Check if plan is ready for claiming
-            let current_time = get_block_timestamp();
+            let plan = self.inheritance_plans.read(plan_id);
             assert(current_time >= plan.becomes_active_at, ERR_CLAIM_NOT_READY);
+
+            // Mark claim code as used
+            let mut updated_claim_code = stored_claim_code;
+            updated_claim_code.is_used = true;
+            updated_claim_code.used_at = current_time;
+            self.claim_codes.write(plan_id, updated_claim_code);
 
             // Update plan as claimed
             let mut updated_plan = plan;
@@ -1138,6 +1158,11 @@ pub mod InheritX {
             }
         }
 
+        fn hash_claim_code(self: @ContractState, code: ByteArray) -> ByteArray {
+            // Delegate to the internal implementation
+            ClaimCodeInternalTraitImpl::hash_claim_code(self, code)
+        }
+
         fn get_inactivity_monitor(
             self: @ContractState, wallet_address: ContractAddress,
         ) -> InactivityMonitor {
@@ -1469,6 +1494,11 @@ pub mod InheritX {
 
             // Store in plan-based map
             self.claim_codes.write(plan_id, claim_code);
+
+            // Also store the hash in the plan for easier validation
+            let mut plan = self.inheritance_plans.read(plan_id);
+            plan.claim_code_hash = code_hash;
+            self.inheritance_plans.write(plan_id, plan);
         }
 
         /// @notice Generates and encrypts claim code for beneficiary (contract-generated)
@@ -1519,7 +1549,7 @@ pub mod InheritX {
             let claim_code = self.generate_secure_code(random_seed, beneficiary);
 
             // Hash the code for validation
-            let code_hash = self.hash_claim_code(claim_code.clone());
+            let code_hash = ClaimCodeInternalTraitImpl::hash_claim_code(@self, claim_code.clone());
 
             // Encrypt with beneficiary's public key
             let encrypted_code = self.encrypt_for_beneficiary(claim_code, beneficiary_public_key);
@@ -1543,6 +1573,11 @@ pub mod InheritX {
             };
 
             self.claim_codes.write(plan_id, claim_code_data);
+
+            // Also store the hash in the plan for easier validation
+            let mut plan = self.inheritance_plans.read(plan_id);
+            plan.claim_code_hash = code_hash.clone();
+            self.inheritance_plans.write(plan_id, plan);
 
             // Emit event
             self
@@ -2278,6 +2313,124 @@ pub mod InheritX {
             }
 
             beneficiaries
+        }
+
+        // ================ PLAN EDITING FUNCTIONS ================
+
+        /// @notice Extends the timeframe for an inheritance plan
+        /// @param plan_id ID of the plan to extend
+        /// @param additional_time Additional time in seconds to add
+        fn extend_plan_timeframe(ref self: ContractState, plan_id: u256, additional_time: u64) {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+            self.assert_plan_owner(plan_id);
+            assert(additional_time > 0, ERR_INVALID_INPUT);
+            assert(additional_time <= 31536000, ERR_INVALID_INPUT); // Max 1 year extension
+
+            let plan = self.inheritance_plans.read(plan_id);
+            assert(plan.status == PlanStatus::Active, ERR_INVALID_STATE);
+
+            // Calculate new active date
+            let new_active_date = plan.becomes_active_at + additional_time;
+
+            // Update the plan
+            let mut updated_plan = plan;
+            updated_plan.becomes_active_at = new_active_date;
+            self.inheritance_plans.write(plan_id, updated_plan);
+
+            // Emit event
+            self
+                .emit(
+                    PlanTimeframeExtended {
+                        plan_id,
+                        extended_by: get_caller_address(),
+                        additional_time,
+                        new_active_date,
+                        extended_at: get_block_timestamp(),
+                    },
+                );
+        }
+
+        /// @notice Updates plan parameters (security level, auto-execute, guardian)
+        /// @param plan_id ID of the plan to update
+        /// @param new_security_level New security level (1-5)
+        /// @param new_auto_execute New auto-execute setting
+        /// @param new_guardian New guardian address (0 for no guardian)
+        fn update_plan_parameters(
+            ref self: ContractState,
+            plan_id: u256,
+            new_security_level: u8,
+            new_auto_execute: bool,
+            new_guardian: ContractAddress,
+        ) {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+            self.assert_plan_owner(plan_id);
+            assert(new_security_level >= 1 && new_security_level <= 5, ERR_INVALID_INPUT);
+
+            let plan = self.inheritance_plans.read(plan_id);
+            assert(plan.status == PlanStatus::Active, ERR_INVALID_STATE);
+
+            // Store old values for event
+            let old_security_level = plan.security_level;
+            let old_auto_execute = plan.auto_execute;
+            let old_guardian = plan.guardian;
+
+            // Update plan parameters
+            let mut updated_plan = plan;
+            updated_plan.security_level = new_security_level;
+            updated_plan.auto_execute = new_auto_execute;
+            updated_plan.guardian = new_guardian;
+            self.inheritance_plans.write(plan_id, updated_plan);
+
+            // Emit event
+            self
+                .emit(
+                    PlanParametersUpdated {
+                        plan_id,
+                        updated_by: get_caller_address(),
+                        old_security_level,
+                        new_security_level,
+                        old_auto_execute,
+                        new_auto_execute,
+                        old_guardian,
+                        new_guardian,
+                        updated_at: get_block_timestamp(),
+                    },
+                );
+        }
+
+        /// @notice Updates the inactivity threshold for a plan
+        /// @param plan_id ID of the plan to update
+        /// @param new_threshold New inactivity threshold in seconds
+        fn update_inactivity_threshold(ref self: ContractState, plan_id: u256, new_threshold: u64) {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+            self.assert_plan_owner(plan_id);
+            assert(new_threshold > 0, ERR_INVALID_THRESHOLD);
+            assert(new_threshold <= 15768000, ERR_INVALID_THRESHOLD); // Max 6 months
+
+            let plan = self.inheritance_plans.read(plan_id);
+            assert(plan.status == PlanStatus::Active, ERR_INVALID_STATE);
+
+            let old_threshold = plan.inactivity_threshold;
+
+            // Update the plan
+            let mut updated_plan = plan;
+            updated_plan.inactivity_threshold = new_threshold;
+            self.inheritance_plans.write(plan_id, updated_plan);
+
+            // Emit event
+            self
+                .emit(
+                    InactivityThresholdUpdated {
+                        plan_id,
+                        updated_by: get_caller_address(),
+                        old_threshold,
+                        new_threshold,
+                        updated_at: get_block_timestamp(),
+                    },
+                );
         }
     }
 
