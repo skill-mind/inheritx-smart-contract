@@ -17,13 +17,33 @@ This directory contains comprehensive documentation for the InheritX platform, a
 - Deployment strategies
 - Development roadmap
 
-### 🔧 [Backend Requirements](BACKEND_REQUIREMENTS.md)
+### 🔧 [Smart Contract API](SMART_CONTRACT_API.md) ⭐ NEW
+**Complete smart contract API documentation with latest features**
+
+- Core functions and parameters
+- New percentage-based allocation functions
+- Balance validation security features
+- **Enhanced Claim Code System**: ⭐ NEW
+  - Secure claim code generation and hashing
+  - Encrypted storage and validation
+  - Time-based expiration and revocation
+  - Multi-layer security validation
+- Data structures and events
+- Usage examples and best practices
+- Error codes and security features
+- Gas optimization and testing
+
+### 🔧 [Backend Requirements](BACKEND_IMPLEMENTATION.md)
 **Complete backend system requirements and specifications**
 
 - User management system
 - KYC processing
 - Inheritance plan management
-- Claim code system
+- **Enhanced Claim Code System**: ⭐ NEW
+  - Secure claim code generation
+  - Hash validation and verification
+  - Time-based security controls
+  - Multi-factor authentication
 - Email notification system
 - Database schema
 - API endpoints
@@ -48,6 +68,10 @@ This directory contains comprehensive documentation for the InheritX platform, a
 - Smart contract event monitoring
 - Wallet activity tracking
 - Inactivity detection
+- **Claim Code Event Monitoring**: ⭐ NEW
+  - Claim code generation events
+  - Validation and usage tracking
+  - Security event monitoring
 - Data indexing and storage
 - Real-time synchronization
 - Performance and scalability
@@ -89,12 +113,26 @@ This directory contains comprehensive documentation for the InheritX platform, a
 - Multi-asset support (STRK, USDT, USDC, NFT)
 - Time-based execution
 - Guardian oversight system
+- **Plan Editing & Modification**: ⭐ NEW
+  - Extend plan timeframes
+  - Update security parameters
+  - Modify inactivity thresholds
+  - Add/remove beneficiaries dynamically
+- **Enhanced Security Features**: ⭐ NEW
+  - Contract-level balance validation
+  - Configurable security settings
+  - Admin-controlled parameters
+  - Emergency timeout controls
 
 ### 🔐 KYC & Security
 - Document verification system
 - Encrypted storage on IPFS
 - Role-based access control
 - Audit trail logging
+- **Multi-Signature Support**: ⭐ NEW
+  - Configurable threshold requirements
+  - Guardian approval workflows
+  - Emergency execution controls
 
 ### 📱 Wallet Inactivity Monitoring
 - Automatic inactivity detection
@@ -108,12 +146,20 @@ This directory contains comprehensive documentation for the InheritX platform, a
 - Emergency withdrawal options
 - Multi-signature support
 
+### 🔑 **Claim Code System**: ⭐ NEW
+- **Secure Generation**: Cryptographic claim code creation
+- **Hash Validation**: On-chain verification of claim codes
+- **Time-Based Security**: Configurable expiration and activation
+- **Multi-Layer Protection**: Usage tracking and revocation
+- **Encrypted Storage**: Secure off-chain code distribution
+
 ## Technical Stack
 
 ### Blockchain
 - **Network**: Starknet
 - **Language**: Cairo
 - **Framework**: OpenZeppelin components
+- **Security**: Enhanced validation and access controls
 
 ### Backend
 - **Runtime**: Rust
@@ -139,18 +185,37 @@ This directory contains comprehensive documentation for the InheritX platform, a
 - Core types and interfaces
 - Basic inheritance plan management
 - KYC system structure
+- **Enhanced Claim Code System**: ⭐ NEW
+  - Secure generation and validation
+  - Hash-based verification
+  - Time-based security controls
+- **Plan Editing Functions**: ⭐ NEW
+  - Timeframe extension
+  - Parameter updates
+  - Security setting modifications
+- **Balance Validation**: ⭐ NEW
+  - Contract-level security checks
+  - USDC/STRK balance verification
+  - Insufficient balance error handling
 
 ### 📋 In Progress
 - Documentation and requirements
 - Architecture planning
 - Technical specifications
+- **Testing and Validation**: ⭐ NEW
+  - Claim code system tests
+  - Plan editing functionality tests
+  - Security feature validation
 
 ### 🚧 Planned
 - Backend API development
 - Pinata IPFS integration
 - Blockchain indexer
 - Frontend application
-- Testing and security audit
+- **Advanced Security Features**: ⭐ NEW
+  - Multi-signature implementation
+  - Guardian approval workflows
+  - Emergency execution controls
 
 ## Getting Started
 
@@ -232,6 +297,10 @@ SMTP_PASS=your_password
 - Security tests for vulnerabilities
 - Performance tests for scalability
 - End-to-end tests for user journeys
+- **Claim Code System Tests**: ⭐ NEW
+  - Generation and validation tests
+  - Security feature tests
+  - Time-based functionality tests
 
 ## Support & Resources
 

@@ -618,3 +618,39 @@ pub struct DisbursementBeneficiaryRemoved {
     pub removed_at: u64,
     pub removed_by: ContractAddress,
 }
+
+// ================ PLAN EDITING EVENTS ================
+
+/// @notice Emitted when a plan's timeframe is extended
+#[derive(Drop, starknet::Event)]
+pub struct PlanTimeframeExtended {
+    pub plan_id: u256,
+    pub extended_by: ContractAddress,
+    pub additional_time: u64,
+    pub new_active_date: u64,
+    pub extended_at: u64,
+}
+
+/// @notice Emitted when plan parameters are updated
+#[derive(Drop, starknet::Event)]
+pub struct PlanParametersUpdated {
+    pub plan_id: u256,
+    pub updated_by: ContractAddress,
+    pub old_security_level: u8,
+    pub new_security_level: u8,
+    pub old_auto_execute: bool,
+    pub new_auto_execute: bool,
+    pub old_guardian: ContractAddress,
+    pub new_guardian: ContractAddress,
+    pub updated_at: u64,
+}
+
+/// @notice Emitted when inactivity threshold is updated
+#[derive(Drop, starknet::Event)]
+pub struct InactivityThresholdUpdated {
+    pub plan_id: u256,
+    pub updated_by: ContractAddress,
+    pub old_threshold: u64,
+    pub new_threshold: u64,
+    pub updated_at: u64,
+}

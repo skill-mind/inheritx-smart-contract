@@ -99,6 +99,16 @@ pub struct Beneficiary {
     pub is_minor: bool // Special handling for minors
 }
 
+// Beneficiary data for plan creation with percentages
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct BeneficiaryData {
+    pub address: ContractAddress,
+    pub percentage: u8, // Share percentage (0-100)
+    pub email_hash: ByteArray, // Hash of beneficiary email
+    pub age: u8, // Age for minor protection
+    pub relationship: ByteArray // Encrypted relationship information
+}
+
 // Enhanced Claim Code type
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct ClaimCode {

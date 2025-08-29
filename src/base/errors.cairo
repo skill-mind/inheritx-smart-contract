@@ -13,11 +13,14 @@ pub const ERR_PLAN_ALREADY_CLAIMED: felt252 = 'Plan already claimed';
 pub const ERR_INVALID_TIMEFRAME: felt252 = 'Invalid timeframe';
 pub const ERR_INVALID_BENEFICIARIES: felt252 = 'Invalid beneficiaries';
 pub const ERR_INSUFFICIENT_BALANCE: felt252 = 'Insufficient balance';
+pub const ERR_INSUFFICIENT_USER_BALANCE: felt252 = 'Insufficient user balance';
 pub const ERR_INVALID_ASSET_TYPE: felt252 = 'Invalid asset type';
 
 // ================ CLAIM ERRORS ================
 pub const ERR_INVALID_CLAIM_CODE: felt252 = 'Invalid claim code';
 pub const ERR_CLAIM_CODE_ALREADY_USED: felt252 = 'Claim code already used';
+pub const ERR_CLAIM_CODE_EXPIRED: felt252 = 'Claim code expired';
+pub const ERR_CLAIM_CODE_REVOKED: felt252 = 'Claim code revoked';
 pub const ERR_CLAIM_NOT_READY: felt252 = 'Claim not ready yet';
 pub const ERR_NOT_BENEFICIARY: felt252 = 'Not a beneficiary';
 

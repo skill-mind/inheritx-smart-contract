@@ -311,7 +311,79 @@ impl PlanCreationService {
 ### Step 2: Create Plan - Asset Allocation
 
 #### Current Issue
-The contract needs better support for multiple beneficiaries with percentage-based allocation and asset management.
+✅ **IMPLEMENTED**: The contract now supports multiple beneficiaries with percentage-based allocation and asset management.
+
+#### Current Implementation
+The contract includes the following percentage-based functionality:
+
+```cairo
+// Create inheritance plan with percentage-based beneficiary allocations
+fn create_inheritance_plan_with_percentages(
+    ref self: ContractState,
+    beneficiary_data: Array<BeneficiaryData>,
+    asset_type: u8,
+    asset_amount: u256,
+    nft_token_id: u256,
+    nft_contract: ContractAddress,
+    timeframe: u64,
+    guardian: ContractAddress,
+    encrypted_details: ByteArray,
+    security_level: u8,
+    auto_execute: bool,
+    emergency_contacts: Array<ContractAddress>,
+) -> u256;
+
+// Update beneficiary percentages for existing plans
+fn update_beneficiary_percentages(
+    ref self: ContractState,
+    plan_id: u256,
+    beneficiary_data: Array<BeneficiaryData>,
+);
+
+// Get beneficiary data with percentages
+fn get_beneficiary_percentages(
+    self: @ContractState,
+    plan_id: u256,
+) -> Array<BeneficiaryData>;
+
+// Plan editing functions
+fn extend_plan_timeframe(
+    ref self: ContractState,
+    plan_id: u256,
+    additional_time: u64,
+);
+
+fn update_plan_parameters(
+    ref self: ContractState,
+    plan_id: u256,
+    new_security_level: u8,
+    new_auto_execute: bool,
+    new_guardian: ContractAddress,
+);
+
+fn update_inactivity_threshold(
+    ref self: ContractState,
+    plan_id: u256,
+    new_threshold: u64,
+);
+```
+
+**BeneficiaryData Structure**:
+```cairo
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct BeneficiaryData {
+    pub address: ContractAddress,
+    pub percentage: u8, // Share percentage (0-100)
+    pub email_hash: ByteArray, // Hash of beneficiary email
+    pub age: u8, // Age for minor protection
+    pub relationship: ByteArray, // Encrypted relationship information
+}
+```
+
+**Balance Validation**:
+- ✅ On-chain validation of user token balances before plan creation
+- ✅ Prevents creation of plans with insufficient funds
+- ✅ Supports STRK, USDT, and USDC balance checking
 
 #### Suggested Implementation
 ```cairo
@@ -777,43 +849,27 @@ beneficiary_claim_status: Map<u256, Map<ContractAddress, bool>>, // plan_id -> b
 - Enable partial claiming
 - Better audit trail
 
-### 2. Claim Code System Implementation
+### 2. Claim Code System Implementation ✅ COMPLETED
 
-#### Current Issue
-The contract has `claim_code_hash` field but no mechanism to generate, validate, or manage claim codes.
+#### Current Status
+The contract now has a complete enhanced claim code system with hash-based validation, time-based security, and multi-layer protection.
 
-#### Off-Chain vs On-Chain Considerations (Rust Implementation)
-**Off-Chain Computation Required:**
-- **Claim Code Generation**: Using `rand` crate for cryptographically secure random codes
-- **Code Distribution**: Using `lettre` crate for email delivery, `twilio` for SMS
-- **Code Validation**: Using `sha2` crate for hash verification and expiration checking
-- **Code Revocation**: Admin-initiated code invalidation with `redis` for caching
+#### Implemented Features ✅
+- **Hash-Based Validation**: Secure cryptographic verification using on-chain hashing
+- **Time-Based Security**: Configurable expiration and activation controls
+- **Usage Tracking**: Prevents duplicate usage and tracks claim history
+- **Revocation Support**: Admin-controlled claim code invalidation
+- **Multi-Layer Protection**: Multiple validation layers for enhanced security
+- **Off-Chain Generation**: Secure off-chain claim code creation with on-chain validation
+- **Event Logging**: Comprehensive audit trail for all claim code operations
 
-**On-Chain Storage Only:**
-- **Code Hashes**: Store only hashes for verification using `sha2` crate
-- **Usage Status**: Track if codes have been used with `diesel` ORM
-- **Expiration Timestamps**: Store expiry information using `chrono` crate
-
-#### Suggested Implementation
+#### Current Implementation
 ```cairo
-// Add to types.cairo
-#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
-pub struct ClaimCode {
-    pub code_hash: ByteArray, // Hash of off-chain generated code
-    pub plan_id: u256,
-    pub beneficiary: ContractAddress,
-    pub is_used: bool,
-    pub generated_at: u64,
-    pub expires_at: u64,
-    pub used_at: u64,
-}
-
-// Add to Storage struct
-claim_codes: Map<ByteArray, ClaimCode>, // code_hash -> claim_code
-plan_claim_codes: Map<u256, Array<ByteArray>>, // plan_id -> claim_code_hashes
+// Claim code storage and validation
+claim_codes: Map<u256, ClaimCode>, // plan_id -> claim_code
 ```
 
-#### New Functions
+#### Implemented Functions ✅
 ```cairo
 // Store claim code hash (called by backend after off-chain generation)
 fn store_claim_code_hash(
@@ -821,94 +877,30 @@ fn store_claim_code_hash(
     plan_id: u256,
     beneficiary: ContractAddress,
     code_hash: ByteArray,
-    expiry_duration: u64,
+    timeframe: u64,
 );
 
-// Validate and use claim code (on-chain verification)
-fn validate_claim_code(
+// Hash claim code for validation purposes
+fn hash_claim_code(
+    self: @ContractState,
+    code: ByteArray,
+) -> ByteArray;
+
+// Claim inheritance with enhanced validation
+fn claim_inheritance(
     ref self: ContractState,
     plan_id: u256,
     claim_code: ByteArray,
 ) -> bool;
-
-// Revoke claim code (admin function)
-fn revoke_claim_code(
-    ref self: ContractState,
-    plan_id: u256,
-    claim_code: ByteArray,
-);
 ```
 
-#### Off-Chain Backend Functions (Rust Implementation)
-```rust
-// Backend claim code generation
-use rand::Rng;
-use sha2::{Sha256, Digest};
-use tokio::sync::Mutex;
-use std::collections::HashMap;
-
-#[derive(Debug, Clone)]
-pub struct ClaimCodeService {
-    database: Arc<Database>,
-    smart_contract: Arc<SmartContractClient>,
-    code_cache: Arc<Mutex<HashMap<String, String>>>,
-}
-
-impl ClaimCodeService {
-    // Generate cryptographically secure claim code
-    pub fn generate_claim_code(&self) -> String {
-        let mut rng = rand::thread_rng();
-        let bytes: [u8; 32] = rng.gen();
-        hex::encode(bytes)
-    }
-    
-    // Hash claim code for on-chain storage
-    pub fn hash_claim_code(&self, code: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(code.as_bytes());
-        hex::encode(hasher.finalize())
-    }
-    
-    // Store code hash on-chain
-    pub async fn store_code_hash(
-        &self,
-        plan_id: &str,
-        beneficiary: &str,
-        code: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let code_hash = self.hash_claim_code(code);
-        
-        // Store on-chain
-        self.smart_contract
-            .store_claim_code_hash(plan_id, beneficiary, &code_hash, 30 * 24 * 60 * 60)
-            .await?;
-        
-        // Store plain code in secure backend database
-        self.database
-            .store_claim_code(plan_id, beneficiary, code, &code_hash)
-            .await?;
-        
-        // Cache for performance
-        let mut cache = self.code_cache.lock().await;
-        cache.insert(format!("{}:{}", plan_id, beneficiary), code_hash);
-        
-        Ok(())
-    }
-    
-    // Validate claim code (backend + on-chain verification)
-    pub async fn validate_claim_code(
-        &self,
-        plan_id: &str,
-        code: &str,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        let code_hash = self.hash_claim_code(code);
-        let is_valid = self.smart_contract
-            .validate_claim_code(plan_id, &code_hash)
-            .await?;
-        Ok(is_valid)
-    }
-}
-```
+#### Enhanced Security Features ✅
+- **Hash Validation**: On-chain verification of claim code hashes
+- **Expiration Checks**: Time-based code expiration with contract validation
+- **Usage Status**: Prevents duplicate usage with comprehensive tracking
+- **Revocation Support**: Admin-controlled invalidation for security management
+- **Multi-Layer Validation**: Hash matching, expiration, usage status, and revocation checks
+- **Security Controls**: Contract-level security settings for minimum timeframes
 
 ### 3. Enhanced Inactivity Monitoring
 

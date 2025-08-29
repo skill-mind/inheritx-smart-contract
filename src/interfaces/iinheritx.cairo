@@ -1,8 +1,8 @@
 use core::byte_array::ByteArray;
 use starknet::{ClassHash, ContractAddress};
 use crate::base::types::{
-    AssetAllocation, Beneficiary, ClaimCode, DisbursementBeneficiary, EscrowAccount,
-    InactivityMonitor, InheritancePlan, MonthlyDisbursementPlan, SecuritySettings,
+    AssetAllocation, Beneficiary, BeneficiaryData, ClaimCode, DisbursementBeneficiary,
+    EscrowAccount, InactivityMonitor, InheritancePlan, MonthlyDisbursementPlan, SecuritySettings,
 };
 
 #[starknet::interface]
@@ -24,6 +24,33 @@ pub trait IInheritX<TContractState> {
     fn create_inheritance_plan(
         ref self: TContractState,
         beneficiaries: Array<ContractAddress>,
+        asset_type: u8,
+        asset_amount: u256,
+        nft_token_id: u256,
+        nft_contract: ContractAddress,
+        timeframe: u64,
+        guardian: ContractAddress,
+        encrypted_details: ByteArray,
+        security_level: u8,
+        auto_execute: bool,
+        emergency_contacts: Array<ContractAddress>,
+    ) -> u256;
+
+    /// @notice Creates a new inheritance plan with percentage-based beneficiary allocations
+    /// @param beneficiary_data Array of beneficiary data including address and percentage
+    /// @param asset_type Type of asset (0: STRK, 1: USDT, 2: USDC, 3: NFT)
+    /// @param asset_amount Amount of tokens (0 for NFTs)
+    /// @param nft_token_id NFT token ID (0 for tokens)
+    /// @param nft_contract NFT contract address (0 for tokens)
+    /// @param timeframe Time in seconds until plan becomes active
+    /// @param guardian Optional guardian address (0 for no guardian)
+    /// @param encrypted_details Encrypted inheritance details
+    /// @param security_level Security level (1-5)
+    /// @param auto_execute Whether to auto-execute on maturity
+    /// @param emergency_contacts Array of emergency contact addresses
+    fn create_inheritance_plan_with_percentages(
+        ref self: TContractState,
+        beneficiary_data: Array<BeneficiaryData>,
         asset_type: u8,
         asset_amount: u256,
         nft_token_id: u256,
@@ -60,6 +87,38 @@ pub trait IInheritX<TContractState> {
     fn remove_beneficiary_from_plan(
         ref self: TContractState, plan_id: u256, beneficiary: ContractAddress, reason: ByteArray,
     );
+
+    /// @notice Updates beneficiary percentages for an existing plan
+    /// @param plan_id ID of the plan
+    /// @param beneficiary_data Array of beneficiary data with updated percentages
+    fn update_beneficiary_percentages(
+        ref self: TContractState, plan_id: u256, beneficiary_data: Array<BeneficiaryData>,
+    );
+
+    // ================ PLAN EDITING FUNCTIONS ================
+
+    /// @notice Extends the timeframe for an inheritance plan
+    /// @param plan_id ID of the plan to extend
+    /// @param additional_time Additional time in seconds to add
+    fn extend_plan_timeframe(ref self: TContractState, plan_id: u256, additional_time: u64);
+
+    /// @notice Updates plan parameters (security level, auto-execute, guardian)
+    /// @param plan_id ID of the plan to update
+    /// @param new_security_level New security level (1-5)
+    /// @param new_auto_execute New auto-execute setting
+    /// @param new_guardian New guardian address (0 for no guardian)
+    fn update_plan_parameters(
+        ref self: TContractState,
+        plan_id: u256,
+        new_security_level: u8,
+        new_auto_execute: bool,
+        new_guardian: ContractAddress,
+    );
+
+    /// @notice Updates the inactivity threshold for a plan
+    /// @param plan_id ID of the plan to update
+    /// @param new_threshold New inactivity threshold in seconds
+    fn update_inactivity_threshold(ref self: TContractState, plan_id: u256, new_threshold: u64);
 
     /// @notice Claims assets from an inheritance plan using claim code
     /// @param plan_id ID of the plan to claim from
@@ -200,7 +259,13 @@ pub trait IInheritX<TContractState> {
 
     /// @notice Gets a single inheritance plan
     /// @param plan_id ID of the plan
+    /// @return The inheritance plan
     fn get_inheritance_plan(self: @TContractState, plan_id: u256) -> InheritancePlan;
+
+    /// @notice Gets beneficiary percentages for a plan
+    /// @param plan_id ID of the plan
+    /// @return Array of beneficiary data with percentages
+    fn get_beneficiary_percentages(self: @TContractState, plan_id: u256) -> Array<BeneficiaryData>;
 
     /// @notice Gets all beneficiaries for a plan
     /// @param plan_id ID of the plan
@@ -213,6 +278,10 @@ pub trait IInheritX<TContractState> {
     /// @notice Gets claim code details
     /// @param code_hash Hash of the claim code
     fn get_claim_code(self: @TContractState, code_hash: ByteArray) -> ClaimCode;
+
+    /// @notice Hashes a claim code for validation
+    /// @param code The claim code to hash
+    fn hash_claim_code(self: @TContractState, code: ByteArray) -> ByteArray;
 
     /// @notice Gets inactivity monitor for a wallet
     /// @param wallet_address Wallet address
