@@ -3161,7 +3161,7 @@ fn test_claim_code_validation_workflow() {
             1, // min_timeframe (1 second for testing)
             86400, // max_timeframe (1 day)
             false, // require_guardian
-            true, // allow_early_execution
+            false, // allow_early_execution
             1000000000, // max_asset_amount
             false, // require_multi_sig
             2, // multi_sig_threshold
@@ -3420,13 +3420,15 @@ fn test_beneficiary_identity_verification() {
 
     // The plan creation already added USER1_ADDR as a beneficiary with default data
     // Test identity verification with the default data (empty strings)
+    // Note: This will now fail because KYC is not approved
     let default_email_hash_1 = "";
     let default_name_hash_1 = "";
     let is_verified = contract
         .verify_beneficiary_identity(
             plan_id, USER1_ADDR(), default_email_hash_1, default_name_hash_1,
         );
-    assert(is_verified, 'Bfry identity be verified');
+    // KYC requirement: verification should fail without approved KYC
+    assert(!is_verified, 'Bfry verf fails without KYC');
 
     // Test identity verification with non-existent beneficiary
     let default_email_hash_2 = "";
