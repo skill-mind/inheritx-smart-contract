@@ -2809,6 +2809,9 @@ pub mod InheritX {
 
             let beneficiary = self.plan_beneficiaries.read((plan_id, beneficiary_index - 1));
             assert(beneficiary.address == beneficiary_address, ERR_UNAUTHORIZED);
+
+            // Ensure beneficiary has approved KYC status before allowing claims
+            assert(beneficiary.kyc_status == KYCStatus::Approved, ERR_KYC_NOT_APPROVED);
             // Note: email_hash can be empty for testing purposes
         }
 
@@ -2827,6 +2830,11 @@ pub mod InheritX {
             }
 
             let beneficiary = self.plan_beneficiaries.read((plan_id, beneficiary_index - 1));
+
+            // Ensure beneficiary has approved KYC status
+            if beneficiary.kyc_status != KYCStatus::Approved {
+                return false;
+            }
 
             // Verify email hash matches
             if beneficiary.email_hash != email_hash {

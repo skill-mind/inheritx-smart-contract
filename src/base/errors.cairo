@@ -24,6 +24,7 @@ pub const ERR_CLAIM_CODE_REVOKED: felt252 = 'Claim code revoked';
 pub const ERR_CLAIM_NOT_READY: felt252 = 'Claim not ready yet';
 pub const ERR_NOT_BENEFICIARY: felt252 = 'Not a beneficiary';
 pub const ERR_BENEFICIARY_IDENTITY_MISMATCH: felt252 = 'Beneficiary identity mismatch';
+pub const ERR_KYC_NOT_APPROVED: felt252 = 'KYC not approved';
 
 // ================ SWAP ERRORS ================
 pub const ERR_SWAP_REQUEST_NOT_FOUND: felt252 = 'Swap request not found';
@@ -36,7 +37,6 @@ pub const ERR_SWAP_FAILED: felt252 = 'Swap operation failed';
 pub const ERR_KYC_NOT_FOUND: felt252 = 'KYC data not found';
 pub const ERR_KYC_ALREADY_APPROVED: felt252 = 'KYC already approved';
 pub const ERR_KYC_ALREADY_REJECTED: felt252 = 'KYC already rejected';
-pub const ERR_KYC_NOT_APPROVED: felt252 = 'KYC not approved';
 pub const ERR_INVALID_USER_TYPE: felt252 = 'Invalid user type';
 
 // ================ INACTIVITY ERRORS ================
