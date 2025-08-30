@@ -24,11 +24,12 @@ pub enum UserType {
 
 // KYC status enum
 #[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
-#[allow(starknet::store_no_default_variant)]
 pub enum KYCStatus {
     Pending,
     Approved,
     Rejected,
+    #[default]
+    Unknown,
 }
 
 // Plan status enum

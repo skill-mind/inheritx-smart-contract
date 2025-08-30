@@ -3387,3 +3387,55 @@ fn test_store_claim_code_hash_consistency() {
 
     stop_cheat_caller_address(contract.contract_address);
 }
+
+#[test]
+fn test_beneficiary_identity_verification() {
+    let (contract, strk_token, _, _) = deploy_inheritx_contract();
+
+    // Setup: Create a plan first
+    start_cheat_caller_address(strk_token.contract_address, CREATOR_ADDR());
+    strk_token.approve(contract.contract_address, 100_000_000);
+    stop_cheat_caller_address(strk_token.contract_address);
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let mut beneficiaries = ArrayTrait::new();
+    beneficiaries.append(USER1_ADDR());
+
+    let mut emergency_contacts = ArrayTrait::new();
+
+    let plan_id = contract
+        .create_inheritance_plan(
+            beneficiaries,
+            0, // STRK
+            1_000_000, // 1 STRK
+            0, // No NFT
+            ZERO_ADDR(), // No NFT contract
+            86400, // 1 day
+            ZERO_ADDR(), // No guardian
+            create_empty_byte_array(),
+            3, // security_level
+            false, // auto_execute
+            emergency_contacts,
+        );
+
+    // The plan creation already added USER1_ADDR as a beneficiary with default data
+    // Test identity verification with the default data (empty strings)
+    let default_email_hash_1 = "";
+    let default_name_hash_1 = "";
+    let is_verified = contract
+        .verify_beneficiary_identity(
+            plan_id, USER1_ADDR(), default_email_hash_1, default_name_hash_1,
+        );
+    assert(is_verified, 'Bfry identity be verified');
+
+    // Test identity verification with non-existent beneficiary
+    let default_email_hash_2 = "";
+    let default_name_hash_2 = "";
+    let is_verified_wrong_address = contract
+        .verify_beneficiary_identity(
+            plan_id, USER2_ADDR(), default_email_hash_2, default_name_hash_2,
+        );
+    assert(!is_verified_wrong_address, 'Non-existent bfry not verified');
+
+    stop_cheat_caller_address(contract.contract_address);
+}

@@ -125,6 +125,20 @@ pub trait IInheritX<TContractState> {
     /// @param claim_code Secret claim code hash
     fn claim_inheritance(ref self: TContractState, plan_id: u256, claim_code: ByteArray);
 
+    /// @notice Verifies beneficiary identity using email and name hashes
+    /// @param plan_id ID of the plan
+    /// @param beneficiary_address Address of the beneficiary
+    /// @param email_hash Hash of the beneficiary's email
+    /// @param name_hash Hash of the beneficiary's name
+    /// @return Whether the identity verification passed
+    fn verify_beneficiary_identity(
+        self: @TContractState,
+        plan_id: u256,
+        beneficiary_address: ContractAddress,
+        email_hash: ByteArray,
+        name_hash: ByteArray,
+    ) -> bool;
+
     // ================ CLAIM CODE FUNCTIONS ================
 
     /// @notice Stores claim code hash for a beneficiary (called by backend)

@@ -23,6 +23,7 @@ pub const ERR_CLAIM_CODE_EXPIRED: felt252 = 'Claim code expired';
 pub const ERR_CLAIM_CODE_REVOKED: felt252 = 'Claim code revoked';
 pub const ERR_CLAIM_NOT_READY: felt252 = 'Claim not ready yet';
 pub const ERR_NOT_BENEFICIARY: felt252 = 'Not a beneficiary';
+pub const ERR_BENEFICIARY_IDENTITY_MISMATCH: felt252 = 'Beneficiary identity mismatch';
 
 // ================ SWAP ERRORS ================
 pub const ERR_SWAP_REQUEST_NOT_FOUND: felt252 = 'Swap request not found';
