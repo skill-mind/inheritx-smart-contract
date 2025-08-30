@@ -464,9 +464,62 @@ pub async fn resume_monthly_disbursement(
 - Beneficiary notification system
 - Action logging and audit trails
 
-### 6. Enhanced Escrow and Security Service
+### 6. Beneficiary Verification Service ⭐ NEW
 
-#### 6.1 Advanced Escrow Management
+#### 6.1 Beneficiary Identity Verification
+```rust
+pub async fn verify_beneficiary_identity(
+    &self,
+    plan_id: u256,
+    beneficiary_address: String,
+    email_hash: String,
+    name_hash: String,
+) -> Result<BeneficiaryVerificationResult, BackendError> {
+    // Verify beneficiary identity on-chain
+    let contract = self.get_inheritx_contract().await?;
+    
+    let result = contract
+        .verify_beneficiary_identity(plan_id, beneficiary_address, email_hash, name_hash)
+        .call()
+        .await?;
+    
+    // Emit verification event
+    self.event_service
+        .emit_beneficiary_verification(plan_id, beneficiary_address, result)
+        .await?;
+    
+    Ok(BeneficiaryVerificationResult {
+        is_verified: result,
+        verified_at: chrono::Utc::now(),
+        verification_method: "on_chain".to_string(),
+    })
+}
+```
+
+#### 6.2 Beneficiary Verification Management
+```rust
+pub async fn manage_beneficiary_verifications(
+    &self,
+    plan_id: u256,
+) -> Result<Vec<BeneficiaryVerificationRecord>, BackendError> {
+    // Get all verification records for a plan
+    let verifications = self.database
+        .get_beneficiary_verifications(plan_id)
+        .await?;
+    
+    Ok(verifications)
+}
+```
+
+**Responsibilities:**
+- On-chain beneficiary identity verification
+- Email and name hash validation
+- Verification event emission and tracking
+- Verification history management
+
+### 7. Enhanced Escrow and Security Service
+
+#### 7.1 Advanced Escrow Management
 ```rust
 pub async fn manage_escrow_lifecycle(
     escrow_id: u256,
@@ -1252,6 +1305,32 @@ async fn get_disbursement_analytics(plan_id: u256, time_range: TimeRange) -> Res
 
 // GET /api/v1/monthly-disbursements/{plan_id}/compliance
 async fn get_disbursement_compliance(plan_id: u256, period: DisbursementPeriod) -> Result<ComplianceReport>
+```
+
+### Beneficiary Management
+
+// POST /api/v1/plans/{plan_id}/beneficiaries
+async fn add_beneficiary_to_plan(beneficiary_data: BeneficiaryData) -> Result<BeneficiaryResult>
+
+// PUT /api/v1/plans/{plan_id}/beneficiaries/{beneficiary_address}
+async fn update_beneficiary_percentage(beneficiary_data: BeneficiaryData) -> Result<BeneficiaryResult>
+
+// DELETE /api/v1/plans/{plan_id}/beneficiaries/{beneficiary_address}
+async fn remove_beneficiary_from_plan(beneficiary_address: String) -> Result<()>
+
+// GET /api/v1/plans/{plan_id}/beneficiaries
+async fn get_plan_beneficiaries(plan_id: u256) -> Result<Vec<BeneficiaryData>>
+
+// POST /api/v1/plans/{plan_id}/beneficiaries/verify ⭐ NEW
+async fn verify_beneficiary_identity(
+    plan_id: u256,
+    beneficiary_address: String,
+    email_hash: String,
+    name_hash: String,
+) -> Result<BeneficiaryVerificationResult>
+
+// GET /api/v1/plans/{plan_id}/beneficiaries/verifications ⭐ NEW
+async fn get_beneficiary_verifications(plan_id: u256) -> Result<Vec<BeneficiaryVerificationRecord>>
 ```
 
 ## User Experience Flow Integration

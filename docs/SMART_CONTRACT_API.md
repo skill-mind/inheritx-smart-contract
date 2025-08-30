@@ -98,20 +98,49 @@ fn update_beneficiary_percentages(
     ref self: ContractState,
     plan_id: u256,
     beneficiary_data: Array<BeneficiaryData>,
-)
+) -> ()
 ```
 
 **Description**: Updates beneficiary percentages for an existing plan.
 
 **Parameters**:
 - `plan_id`: ID of the plan to update
-- `beneficiary_data`: New beneficiary data with updated percentages
+- `beneficiary_data`: Array of beneficiary data with updated percentages
 
 **Security Features**:
 - ✅ Plan ownership validation
 - ✅ Percentage validation (total must equal 100%)
-- ✅ Plan existence validation
 - ✅ Pause check
+- ✅ Input validation
+
+#### Verify Beneficiary Identity ⭐ NEW
+```cairo
+fn verify_beneficiary_identity(
+    self: @ContractState,
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    email_hash: ByteArray,
+    name_hash: ByteArray,
+) -> bool
+```
+
+**Description**: Verifies that a beneficiary's identity matches the stored data during inheritance claims.
+
+**Parameters**:
+- `plan_id`: ID of the inheritance plan
+- `beneficiary_address`: Address of the beneficiary to verify
+- `email_hash`: Hash of the beneficiary's email for verification
+- `name_hash`: Hash of the beneficiary's name for verification
+
+**Returns**: `bool` - `true` if identity matches, `false` otherwise
+
+**Security Features**:
+- ✅ Beneficiary existence validation
+- ✅ Email hash verification
+- ✅ Name hash verification
+- ✅ Address validation
+
+**Usage**: This function is called during the inheritance claim process to ensure the claiming beneficiary matches the stored beneficiary data.
 
 #### Get Beneficiary Percentages ⭐ NEW
 ```cairo
@@ -232,66 +261,40 @@ fn generate_encrypted_claim_code(
 - ✅ Pause check
 - ✅ Zero address validation
 
-#### Store Claim Code Hash ⭐ NEW (Recommended)
+### 3. Enhanced Claim Code System ⭐ NEW
+
+#### Store Claim Code Hash
 ```cairo
 fn store_claim_code_hash(
     ref self: ContractState,
     plan_id: u256,
     beneficiary: ContractAddress,
-    code_hash: ByteArray,
-    timeframe: u64,
-)
+    claim_code: ByteArray,
+    expiration_time: u64,
+) -> ()
 ```
 
-**Description**: Stores a pre-generated claim code hash for manual claim code management (recommended approach).
+**Description**: Stores a hash of a claim code for secure validation.
 
 **Parameters**:
 - `plan_id`: ID of the inheritance plan
 - `beneficiary`: Address of the beneficiary
-- `code_hash`: Pre-generated hash of the claim code
-- `timeframe`: Time in seconds until code expires
+- `claim_code`: The claim code to hash and store
+- `expiration_time`: Unix timestamp when the code expires
 
 **Security Features**:
 - ✅ Plan existence validation
-- ✅ Plan ownership validation
 - ✅ Beneficiary validation
-- ✅ Pause check
-- ✅ Hash validation
-- ✅ **Enhanced Security**: ⭐ NEW
-  - Hash-based validation system
-  - Time-based expiration controls
-  - Usage tracking and revocation
-  - Multi-layer security validation
+- ✅ Hash-based storage (not plaintext)
+- ✅ Time-based expiration
 
-#### Hash Claim Code ⭐ NEW
-```cairo
-fn hash_claim_code(
-    self: @ContractState,
-    code: ByteArray,
-) -> ByteArray
-```
-
-**Description**: Generates a hash of a claim code for validation purposes.
-
-**Parameters**:
-- `code`: The claim code to hash
-
-**Returns**: `ByteArray` - Hash of the claim code
-
-**Use Cases**:
-- Off-chain claim code generation
-- Hash verification and validation
-- Security testing and validation
-
-### 5. Plan Execution and Management
-
-#### Claim Inheritance ⭐ ENHANCED
+#### Claim Inheritance with Enhanced Security ⭐ NEW
 ```cairo
 fn claim_inheritance(
     ref self: ContractState,
     plan_id: u256,
     claim_code: ByteArray,
-) -> bool
+) -> ()
 ```
 
 **Description**: Claims inheritance using a valid claim code with enhanced security validation.
@@ -300,23 +303,43 @@ fn claim_inheritance(
 - `plan_id`: ID of the inheritance plan
 - `claim_code`: Valid claim code for the plan
 
-**Returns**: `bool` - Success status
-
 **Security Features**:
-- ✅ Plan existence validation
-- ✅ **Enhanced Claim Code Validation**: ⭐ NEW
-  - Hash-based verification
-  - Time-based expiration checks
-  - Usage status validation
-  - Revocation status checks
-- ✅ Plan status validation
-- ✅ Time validation (plan must be active)
-- ✅ Pause check
-- ✅ **Multi-Layer Security**: ⭐ NEW
-  - Claim code hash matching
-  - Expiration time validation
-  - Usage tracking
-  - Revocation protection
+- ✅ Claim code hash validation
+- ✅ Time-based expiration check
+- ✅ Usage tracking (prevents reuse)
+- ✅ Revocation check
+- ✅ Plan readiness validation
+- ✅ Beneficiary identity verification
+- ✅ Address authorization
+
+**Enhanced Security Flow**:
+1. **Claim Code Validation**: Input code is hashed and compared with stored hash
+2. **Time Validation**: Checks if code is expired or plan is ready
+3. **Usage Tracking**: Prevents duplicate usage of claim codes
+4. **Identity Verification**: Verifies beneficiary identity using email and name hashes
+5. **Authorization**: Ensures caller is the intended beneficiary
+
+#### Hash Claim Code
+```cairo
+fn hash_claim_code(
+    self: @ContractState,
+    claim_code: ByteArray,
+) -> ByteArray
+```
+
+**Description**: Generates a hash of a claim code for validation purposes.
+
+**Parameters**:
+- `claim_code`: The claim code to hash
+
+**Returns**: `ByteArray` - Hash of the claim code
+
+**Use Cases**:
+- Off-chain claim code generation
+- Hash verification and validation
+- Security testing and validation
+
+### 4. Plan Execution and Management
 
 ## Data Structures
 
@@ -454,6 +477,49 @@ event ClaimCodeRevoked {
 }
 ```
 
+### Beneficiary Events
+
+#### BeneficiaryAdded
+```cairo
+event BeneficiaryAdded {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    percentage: u8,
+    added_at: u64,
+}
+```
+
+#### BeneficiaryModified
+```cairo
+event BeneficiaryModified {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    modification_type: ByteArray,
+    modified_at: u64,
+    modified_by: ContractAddress,
+}
+```
+
+#### BeneficiaryIdentityVerified ⭐ NEW
+```cairo
+event BeneficiaryIdentityVerified {
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    verification_result: bool,
+    verified_at: u64,
+    verified_by: ContractAddress,
+}
+```
+
+**Description**: Emitted when beneficiary identity verification is performed.
+
+**Parameters**:
+- `plan_id`: ID of the inheritance plan
+- `beneficiary_address`: Address of the verified beneficiary
+- `verification_result`: Whether the verification was successful
+- `verified_at`: Timestamp of verification
+- `verified_by`: Address that performed the verification
+
 ## Error Codes
 
 ### New Error Constants
@@ -482,6 +548,7 @@ pub const ERR_CLAIM_NOT_READY: felt252 = 'Claim not ready yet';
 - `ERR_CLAIM_NOT_READY`: Claim not ready yet ⭐ NEW
 - `ERR_INVALID_PERCENTAGE`: Invalid percentage ⭐ NEW
 - `ERR_DUPLICATE_BENEFICIARY`: Duplicate beneficiary address ⭐ NEW
+- `ERR_BENEFICIARY_IDENTITY_MISMATCH`: Beneficiary identity mismatch
 
 ## Security Features
 

@@ -247,6 +247,29 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 7. Inheritance process initiated
 ```
 
+## Core Features
+
+### 1. **Inheritance Plan Management**
+- **Flexible asset types**: Support for STRK, USDT, USDC, and NFTs
+- **Percentage-based allocation**: Custom beneficiary percentages (must sum to 100%)
+- **Time-based activation**: Configurable activation delays
+- **Guardian oversight**: Optional guardian addresses for plan management
+- **Emergency contacts**: Backup addresses for emergency situations
+
+### 2. **Enhanced Security System** ⭐ NEW
+- **Beneficiary identity verification**: Email and name hash validation during claims
+- **Multi-factor claim validation**: Combines claim codes with identity verification
+- **Hash-based claim codes**: Secure storage and validation of claim codes
+- **Time-based security**: Automatic expiration and revocation mechanisms
+- **Usage tracking**: Prevents duplicate claim code usage
+
+### 3. **Monthly Distribution System**
+- **Time-based disbursements**: Monthly asset distribution over specified periods
+- **Percentage-based sharing**: Fair distribution according to beneficiary percentages
+- **Automated execution**: Scheduled monthly disbursements
+- **Pause/resume functionality**: Flexible plan management
+- **Compliance tracking**: Tax and regulatory compliance support
+
 ## Technical Specifications
 
 ### Backend Requirements
@@ -295,16 +318,32 @@ InheritX is a comprehensive inheritance management platform built on Starknet th
 
 ## Security Architecture
 
-### Data Protection
-- **Encryption at Rest**: All sensitive data encrypted
-- **Client-Side Encryption**: Zero-knowledge file storage
-- **Access Control**: Role-based permissions
-- **Audit Logging**: Complete activity tracking
-- **Enhanced Claim Code Security**: 
-  - Zero-knowledge code generation (asset owners never see plain codes)
-  - Public key encryption for secure delivery
-  - On-chain hash validation for code verification
-  - Automatic expiration and revocation mechanisms
+### Multi-Layer Security System
+
+#### 1. **Access Control Layer**
+- **Owner-based permissions**: Only plan owners can modify their plans
+- **Admin functions**: Restricted to authorized admin addresses
+- **Guardian system**: Optional guardian addresses for plan oversight
+- **Emergency contacts**: Backup addresses for emergency situations
+
+#### 2. **Claim Code Security Layer** ⭐ ENHANCED
+- **Hash-based validation**: Claim codes are stored as hashes, not plaintext
+- **Time-based expiration**: Automatic expiration of claim codes
+- **Usage tracking**: Prevents duplicate usage of claim codes
+- **Revocation system**: Ability to revoke compromised claim codes
+- **Multi-factor verification**: Combines claim code with beneficiary identity
+
+#### 3. **Beneficiary Identity Verification Layer** ⭐ NEW
+- **Email hash verification**: Validates beneficiary email during claims
+- **Name hash verification**: Validates beneficiary name during claims
+- **Address validation**: Ensures claiming address matches stored beneficiary
+- **Identity mismatch protection**: Prevents unauthorized inheritance claims
+
+#### 4. **Asset Protection Layer**
+- **Balance validation**: Prevents plan creation with insufficient funds
+- **Pause mechanism**: Emergency pause functionality for all operations
+- **Inactivity monitoring**: Automatic detection of wallet inactivity
+- **Escrow protection**: Secure asset holding during plan execution
 
 ### Blockchain Security
 - **Smart Contract**: Formal verification recommended

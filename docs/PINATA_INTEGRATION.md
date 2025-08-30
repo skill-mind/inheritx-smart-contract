@@ -98,9 +98,13 @@ interface FileUpload {
 - **Plan Previews**: Generated summaries, risk assessments, final confirmations
 
 #### Monthly Disbursement Documents
-- **Disbursement Plans**: Monthly schedules, beneficiary allocations, timeframes
-- **Payment Records**: Transaction history, beneficiary receipts, tax documents
-- **Plan Modifications**: Pause/resume records, cancellation documents, updates
+- **Disbursement Plans**: Monthly distribution schedules and beneficiary allocations
+- **Execution Records**: Monthly disbursement execution history and compliance reports
+- **Beneficiary Verification Documents**: ⭐ NEW
+  - Identity verification records and audit trails
+  - Email and name hash verification logs
+  - Security incident reports and fraud detection data
+- **Compliance Reports**: Tax implications and regulatory compliance documentation
 
 #### Enhanced Security Documents
 - **Security Settings**: Multi-signature configurations, guardian permissions
@@ -131,32 +135,14 @@ interface PlanCreationMetadata {
 ```
 
 #### Monthly Disbursement Metadata
-```typescript
-interface DisbursementMetadata {
-  planId: string;
-  disbursementId: string;
-  status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
-  schedule: {
-    startMonth: number;
-    endMonth: number;
-    totalMonths: number;
-    completedMonths: number;
-    nextDisbursementDate: number;
-  };
-  beneficiaries: Array<{
-    address: string;
-    percentage: number;
-    monthlyAmount: number;
-    totalReceived: number;
-  }>;
-  executionHistory: Array<{
-    month: number;
-    amount: number;
-    executedDate: number;
-    transactionHash: string;
-  }>;
-}
-```
+- **Plan Configuration**: Total amount, monthly amounts, timeframes, beneficiary percentages
+- **Execution Tracking**: Monthly execution status, beneficiary distributions, compliance data
+- **Beneficiary Verification Metadata**: ⭐ NEW
+  - Verification attempt timestamps and results
+  - Identity hash validation records
+  - Security event tracking and incident reports
+  - Fraud detection patterns and analytics
+- **Compliance Data**: Tax calculations, regulatory requirements, audit trails
 
 #### Security and Monitoring Metadata
 ```typescript

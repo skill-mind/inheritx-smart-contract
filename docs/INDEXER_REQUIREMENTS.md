@@ -590,6 +590,15 @@ event BeneficiaryModified {
     modified_by: ContractAddress
 }
 
+// ================ BENEFICIARY VERIFICATION EVENTS ================ ⭐ NEW
+event BeneficiaryIdentityVerified {
+    plan_id: u256,
+    beneficiary_address: felt252,
+    verification_result: bool,
+    verified_at: u64,
+    verified_by: felt252,
+}
+
 // ================ MONTHLY DISBURSEMENT EVENTS ================
 event MonthlyDisbursementPlanCreated {
     plan_id: u256,
@@ -833,6 +842,25 @@ CREATE TABLE plan_creation_flow (
     INDEX idx_plan_id (plan_id),
     INDEX idx_creation_step (creation_step),
     INDEX idx_validation_status (validation_status)
+);
+
+-- Beneficiary verification records table ⭐ NEW
+CREATE TABLE beneficiary_verifications (
+    id SERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL,
+    beneficiary_address VARCHAR(42) NOT NULL,
+    verification_result BOOLEAN NOT NULL,
+    verified_at BIGINT NOT NULL,
+    verified_by VARCHAR(42) NOT NULL,
+    email_hash VARCHAR(255),
+    name_hash VARCHAR(255),
+    verification_method VARCHAR(50) DEFAULT 'on_chain',
+    created_at TIMESTAMP DEFAULT NOW(),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary_address (beneficiary_address),
+    INDEX idx_verification_result (verification_result),
+    INDEX idx_verified_at (verified_at),
+    FOREIGN KEY (plan_id) REFERENCES inheritance_plans(plan_id)
 );
 
 -- Monthly disbursement plans table
@@ -1146,6 +1174,11 @@ GET /api/indexer/kyc/{userAddress}/status
 // New feature endpoints
 GET /api/indexer/plans/{planId}/creation-flow
 GET /api/indexer/plans/{planId}/creation-step/{step}
+GET /api/indexer/plans/{planId}/beneficiaries
+GET /api/indexer/plans/{planId}/beneficiaries/{beneficiaryAddress}
+GET /api/indexer/plans/{planId}/beneficiaries/{beneficiaryAddress}/verifications ⭐ NEW
+GET /api/indexer/plans/{planId}/verifications ⭐ NEW
+
 GET /api/indexer/monthly-disbursements/{planId}
 GET /api/indexer/monthly-disbursements/{planId}/executions
 GET /api/indexer/security/settings
@@ -2083,7 +2116,12 @@ class AlertingService {
 - **Plan Creation Flow Metrics**: Step completion rates and timing
 - **Monthly Disbursement Metrics**: Execution success rates and performance
 - **Security Operation Metrics**: Response times and effectiveness
-- **Claim Code System Metrics**: Generation, delivery, and usage rates
+- **Beneficiary Verification Metrics**: ⭐ NEW
+  - Verification success/failure rates
+  - Identity mismatch detection patterns
+  - Verification attempt frequency
+  - Security incident tracking
+- **Claim Code Metrics**: Generation, delivery, and usage statistics
 
 #### Enhanced Usage Analytics
 - **Plan Creation Flow Analysis**: Step-by-step completion patterns, validation success rates, time per step
@@ -2210,36 +2248,45 @@ tokio-tungstenite = "0.20"
 - **Plan preview generation** with risk assessment data
 
 ### 2. **Monthly Disbursement System Integration**
-- **Disbursement plan monitoring** with real-time status updates
-- **Execution history tracking** with transaction records
-- **Beneficiary record management** with payment history
-- **Plan modification monitoring** for pause/resume/cancel actions
 
-### 3. **Advanced Security Event Monitoring**
+- **Real-time disbursement monitoring**: Track execution status and timing
+- **Beneficiary distribution analytics**: Monitor percentage-based allocations
+- **Compliance reporting**: Track tax implications and regulatory requirements
+- **Performance metrics**: Monitor success rates and execution efficiency
+
+### 3. **Beneficiary Verification System Integration** ⭐ NEW
+
+- **Identity verification monitoring**: Track verification attempts and results
+- **Security analytics**: Monitor verification success/failure patterns
+- **Fraud detection**: Identify suspicious verification patterns
+- **Compliance tracking**: Ensure regulatory requirements are met
+- **Real-time alerts**: Notify of verification failures or security issues
+
+### 4. **Advanced Security Event Monitoring**
 - **Security settings tracking** with configuration changes
 - **Wallet security monitoring** with freeze/blacklist events
 - **Inactivity monitoring** with trigger detection and response
 - **Access control logging** with permission management
 
-### 4. **Enhanced Escrow and Swap Management**
+### 5. **Enhanced Escrow and Swap Management**
 - **Escrow lifecycle tracking** with lock/release events
 - **Swap request monitoring** with execution status
 - **DEX integration tracking** with performance metrics
 - **Claim code management** with generation and usage tracking
 
-### 5. **Comprehensive Activity Logging**
+### 6. **Comprehensive Activity Logging**
 - **Real-time activity tracking** for all operations
 - **Cross-system event correlation** for data consistency
 - **Performance analytics** for all new features
 - **Security event monitoring** with automated alerts
 
-### 6. **Enhanced Data Consistency Management**
+### 7. **Enhanced Data Consistency Management**
 - **On-chain to off-chain synchronization** for all new features
 - **Real-time data validation** with consistency checks
 - **Cross-system health monitoring** with alerting
 - **Automated recovery procedures** for data inconsistencies
 
-### 7. **Advanced Claim Code System**
+### 8. **Advanced Claim Code System**
 - **Zero-knowledge encrypted claim codes** with maximum security
 - **Comprehensive delivery workflow** with multiple delivery methods
 - **Real-time delivery tracking** with retry mechanisms

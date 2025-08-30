@@ -28,6 +28,10 @@ This directory contains comprehensive documentation for the InheritX platform, a
   - Encrypted storage and validation
   - Time-based expiration and revocation
   - Multi-layer security validation
+- **Beneficiary Identity Verification**: ⭐ NEW
+  - Email and name hash validation
+  - Multi-factor authentication during claims
+  - Enhanced security for inheritance process
 - Data structures and events
 - Usage examples and best practices
 - Error codes and security features
@@ -44,6 +48,11 @@ This directory contains comprehensive documentation for the InheritX platform, a
   - Hash validation and verification
   - Time-based security controls
   - Multi-factor authentication
+- **Beneficiary Verification System**: ⭐ NEW
+  - On-chain identity verification
+  - Email and name hash validation
+  - Verification event management
+  - Security monitoring and analytics
 - Email notification system
 - Database schema
 - API endpoints
@@ -72,6 +81,10 @@ This directory contains comprehensive documentation for the InheritX platform, a
   - Claim code generation events
   - Validation and usage tracking
   - Security event monitoring
+- **Beneficiary Verification Monitoring**: ⭐ NEW
+  - Identity verification events
+  - Security analytics and fraud detection
+  - Real-time verification tracking
 - Data indexing and storage
 - Real-time synchronization
 - Performance and scalability
