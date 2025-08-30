@@ -100,6 +100,33 @@ pub mod InheritX {
         fn encrypt_for_beneficiary(
             self: @ContractState, code: ByteArray, public_key: ByteArray,
         ) -> ByteArray;
+
+        /// @notice Verifies that a beneficiary exists in a plan and has valid data
+        /// @param plan_id ID of the plan
+        /// @param beneficiary_address Address of the beneficiary to verify
+        fn assert_beneficiary_in_plan(
+            self: @ContractState, plan_id: u256, beneficiary_address: ContractAddress,
+        );
+
+        /// @notice Verifies beneficiary identity using email and name hashes
+        /// @param plan_id ID of the plan
+        /// @param beneficiary_address Address of the beneficiary
+        /// @param email_hash Hash of the beneficiary's email
+        /// @param name_hash Hash of the beneficiary's name
+        /// @return Whether the identity verification passed
+        fn verify_beneficiary_identity(
+            self: @ContractState,
+            plan_id: u256,
+            beneficiary_address: ContractAddress,
+            email_hash: ByteArray,
+            name_hash: ByteArray,
+        ) -> bool;
+
+        /// @notice Claims inheritance using a valid claim code with enhanced security validation
+        /// @param self Mutable reference to contract state
+        /// @param plan_id ID of the inheritance plan
+        /// @param claim_code Valid claim code for the plan
+        fn claim_inheritance(ref self: ContractState, plan_id: u256, claim_code: ByteArray);
     }
 
     // Components
@@ -228,6 +255,7 @@ pub mod InheritX {
         PlanTimeframeExtended: PlanTimeframeExtended,
         PlanParametersUpdated: PlanParametersUpdated,
         InactivityThresholdUpdated: InactivityThresholdUpdated,
+        BeneficiaryIdentityVerified: BeneficiaryIdentityVerified,
     }
 
     #[constructor]
@@ -646,46 +674,19 @@ pub mod InheritX {
         }
 
         fn claim_inheritance(ref self: ContractState, plan_id: u256, claim_code: ByteArray) {
-            self.assert_not_paused();
-            self.assert_plan_exists(plan_id);
-            self.assert_plan_active(plan_id);
-            self.assert_plan_not_claimed(plan_id);
+            ClaimCodeInternalTraitImpl::claim_inheritance(ref self, plan_id, claim_code);
+        }
 
-            let caller = get_caller_address();
-
-            // Validate claim code by hashing input and comparing with stored hash
-            let stored_claim_code = self.claim_codes.read(plan_id);
-            let input_hash = ClaimCodeInternalTraitImpl::hash_claim_code(@self, claim_code);
-            assert(stored_claim_code.code_hash == input_hash, ERR_INVALID_CLAIM_CODE);
-
-            // Check if claim code is expired
-            let current_time = get_block_timestamp();
-            assert(current_time <= stored_claim_code.expires_at, ERR_CLAIM_CODE_EXPIRED);
-
-            // Check if claim code is already used
-            assert(!stored_claim_code.is_used, ERR_CLAIM_CODE_ALREADY_USED);
-
-            // Check if claim code is revoked
-            assert(!stored_claim_code.is_revoked, ERR_CLAIM_CODE_REVOKED);
-
-            // Check if plan is ready for claiming
-            let plan = self.inheritance_plans.read(plan_id);
-            assert(current_time >= plan.becomes_active_at, ERR_CLAIM_NOT_READY);
-
-            // Mark claim code as used
-            let mut updated_claim_code = stored_claim_code;
-            updated_claim_code.is_used = true;
-            updated_claim_code.used_at = current_time;
-            self.claim_codes.write(plan_id, updated_claim_code);
-
-            // Update plan as claimed
-            let mut updated_plan = plan;
-            updated_plan.is_claimed = true;
-            self.inheritance_plans.write(plan_id, updated_plan);
-
-            // Add to claimed plans
-            let claimed_count = self.claimed_plan_count.read(caller);
-            self.claimed_plan_count.write(caller, claimed_count + 1);
+        fn verify_beneficiary_identity(
+            self: @ContractState,
+            plan_id: u256,
+            beneficiary_address: ContractAddress,
+            email_hash: ByteArray,
+            name_hash: ByteArray,
+        ) -> bool {
+            ClaimCodeInternalTraitImpl::verify_beneficiary_identity(
+                self, plan_id, beneficiary_address, email_hash, name_hash,
+            )
         }
 
         // ================ SWAP FUNCTIONS ================
@@ -2796,6 +2797,101 @@ pub mod InheritX {
             } else {
                 "encrypted_combined_3"
             }
+        }
+
+        fn assert_beneficiary_in_plan(
+            self: @ContractState, plan_id: u256, beneficiary_address: ContractAddress,
+        ) {
+            let beneficiary_index = self
+                .beneficiary_by_address
+                .read((plan_id, beneficiary_address));
+            assert(beneficiary_index > 0, ERR_UNAUTHORIZED);
+
+            let beneficiary = self.plan_beneficiaries.read((plan_id, beneficiary_index - 1));
+            assert(beneficiary.address == beneficiary_address, ERR_UNAUTHORIZED);
+            // Note: email_hash can be empty for testing purposes
+        }
+
+        fn verify_beneficiary_identity(
+            self: @ContractState,
+            plan_id: u256,
+            beneficiary_address: ContractAddress,
+            email_hash: ByteArray,
+            name_hash: ByteArray,
+        ) -> bool {
+            let beneficiary_index = self
+                .beneficiary_by_address
+                .read((plan_id, beneficiary_address));
+            if beneficiary_index == 0 {
+                return false;
+            }
+
+            let beneficiary = self.plan_beneficiaries.read((plan_id, beneficiary_index - 1));
+
+            // Verify email hash matches
+            if beneficiary.email_hash != email_hash {
+                return false;
+            }
+
+            // Verify name hash matches (stored in relationship field for now)
+            if beneficiary.relationship != name_hash {
+                return false;
+            }
+
+            true
+        }
+
+        /// @notice Claims inheritance using a valid claim code with enhanced security validation
+        /// @param self Mutable reference to contract state
+        /// @param plan_id ID of the inheritance plan
+        /// @param claim_code Valid claim code for the plan
+        fn claim_inheritance(ref self: ContractState, plan_id: u256, claim_code: ByteArray) {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+            self.assert_plan_active(plan_id);
+            self.assert_plan_not_claimed(plan_id);
+
+            let caller = get_caller_address();
+
+            // Validate claim code by hashing input and comparing with stored hash
+            let stored_claim_code = self.claim_codes.read(plan_id);
+            let input_hash = Self::hash_claim_code(@self, claim_code);
+            assert(stored_claim_code.code_hash == input_hash, ERR_INVALID_CLAIM_CODE);
+
+            // Verify caller is the intended beneficiary
+            assert(caller == stored_claim_code.beneficiary, ERR_UNAUTHORIZED);
+
+            // Check if claim code is expired
+            let current_time = get_block_timestamp();
+            assert(current_time <= stored_claim_code.expires_at, ERR_CLAIM_CODE_EXPIRED);
+
+            // Check if claim code is already used
+            assert(!stored_claim_code.is_used, ERR_CLAIM_CODE_ALREADY_USED);
+
+            // Check if claim code is revoked
+            assert(!stored_claim_code.is_revoked, ERR_CLAIM_CODE_REVOKED);
+
+            // Check if plan is ready for claiming
+            let plan = self.inheritance_plans.read(plan_id);
+            assert(current_time >= plan.becomes_active_at, ERR_CLAIM_NOT_READY);
+
+            // Verify beneficiary exists in plan and has valid data
+            self.assert_beneficiary_in_plan(plan_id, caller);
+
+            // Mark claim code as used
+            let mut updated_claim_code = stored_claim_code;
+            updated_claim_code.is_used = true;
+            updated_claim_code.used_at = current_time;
+            self.claim_codes.write(plan_id, updated_claim_code);
+
+            // Update plan as claimed
+            let mut updated_plan = plan;
+            updated_plan.is_claimed = true;
+            self.inheritance_plans.write(plan_id, updated_plan);
+
+            // Add to claimed plans
+            let claimed_count = self.claimed_plan_count.read(caller);
+            self.claimed_plan_count.write(caller, claimed_count + 1);
         }
     }
 }

@@ -140,6 +140,15 @@ pub struct ClaimCodeExpired {
     pub expired_at: u64,
 }
 
+#[derive(Drop, starknet::Event)]
+pub struct BeneficiaryIdentityVerified {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub verified_at: u64,
+    pub verification_method: ByteArray, // "email_name_hash" or "kyc"
+    pub verification_score: u8 // 0-100 confidence score
+}
+
 // ================ ESCROW EVENTS ================
 
 #[derive(Drop, starknet::Event)]
