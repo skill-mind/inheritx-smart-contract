@@ -1,8 +1,9 @@
 #[starknet::contract]
-#[feature("deprecated-starknet-consts")]
 pub mod InheritX {
     use core::array::ArrayTrait;
     use core::byte_array::ByteArray;
+    use core::option::OptionTrait;
+    use core::traits::TryInto;
     use openzeppelin::security::pausable::PausableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use openzeppelin::token::erc721::interface::{IERC721Dispatcher, IERC721DispatcherTrait};
@@ -12,13 +13,15 @@ pub mod InheritX {
         StoragePointerWriteAccess,
     };
     use starknet::{
-        ClassHash, ContractAddress, contract_address_const, get_block_timestamp, get_caller_address,
-        get_contract_address,
+        ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
     };
     use crate::base::errors::*;
     use crate::base::events::*;
     use crate::base::types::*;
     use crate::interfaces::iinheritx::IInheritX;
+
+    // Constants
+    const ZERO_ADDRESS: ContractAddress = 0.try_into().unwrap();
 
     // ================ TRAITS ================
 
@@ -268,7 +271,7 @@ pub mod InheritX {
         usdt_token: ContractAddress,
         usdc_token: ContractAddress,
     ) {
-        assert(admin != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+        assert(admin != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
         self.admin.write(admin);
         self.dex_router.write(dex_router);
         self.emergency_withdraw_address.write(emergency_withdraw_address);
@@ -372,7 +375,7 @@ pub mod InheritX {
                 AssetType::STRK => self.strk_token.read(),
                 AssetType::USDT => self.usdt_token.read(),
                 AssetType::USDC => self.usdc_token.read(),
-                AssetType::NFT => contract_address_const::<0>(),
+                AssetType::NFT => ZERO_ADDRESS,
             }
         }
     }
@@ -490,7 +493,7 @@ pub mod InheritX {
                 nft_contract,
                 is_locked: false,
                 locked_at: 0,
-                beneficiary: contract_address_const::<0>(),
+                beneficiary: ZERO_ADDRESS,
                 release_conditions_count: 0,
                 fees: 0,
                 tax_liability: 0,
@@ -642,7 +645,7 @@ pub mod InheritX {
                 nft_contract,
                 is_locked: false,
                 locked_at: 0,
-                beneficiary: contract_address_const::<0>(),
+                beneficiary: ZERO_ADDRESS,
                 release_conditions_count: 0,
                 fees: 0,
                 tax_liability: 0,
@@ -743,7 +746,7 @@ pub mod InheritX {
             self.assert_plan_owner(plan_id);
             assert(percentage > 0 && percentage <= 100, ERR_INVALID_PERCENTAGE);
             assert(age <= 120, ERR_INVALID_INPUT);
-            assert(beneficiary != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(email_hash.len() > 0, ERR_INVALID_INPUT);
             assert(relationship.len() > 0, ERR_INVALID_INPUT);
 
@@ -787,7 +790,7 @@ pub mod InheritX {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(beneficiary != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(reason.len() > 0, ERR_INVALID_INPUT);
 
             // Check if beneficiary exists for this plan
@@ -865,7 +868,7 @@ pub mod InheritX {
 
             // Validate inputs
             assert(escrow_id > 0, ERR_INVALID_INPUT);
-            assert(beneficiary != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(release_reason.len() > 0, ERR_INVALID_INPUT);
 
             // Get the escrow account
@@ -921,7 +924,7 @@ pub mod InheritX {
                 },
                 AssetType::NFT => {
                     assert(escrow.nft_token_id > 0, ERR_INVALID_NFT_TOKEN);
-                    assert(escrow.nft_contract != contract_address_const::<0>(), ERR_INVALID_INPUT);
+                    assert(escrow.nft_contract != ZERO_ADDRESS, ERR_INVALID_INPUT);
 
                     // Transfer NFT using ERC721 interface
                     let nft_contract = IERC721Dispatcher { contract_address: escrow.nft_contract };
@@ -957,7 +960,7 @@ pub mod InheritX {
             self.assert_plan_owner(plan_id);
 
             // Validate inputs
-            assert(wallet_address != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet_address != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(threshold > 0, ERR_INVALID_THRESHOLD);
             assert(threshold <= 15768000, ERR_INVALID_THRESHOLD); // Max 6 months
             // Allow empty email hash for testing purposes
@@ -989,7 +992,7 @@ pub mod InheritX {
 
         fn update_wallet_activity(ref self: ContractState, wallet_address: ContractAddress) {
             self.assert_not_paused();
-            assert(wallet_address != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet_address != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
 
             let current_time = get_block_timestamp();
 
@@ -1054,7 +1057,7 @@ pub mod InheritX {
             assert(swap_request.status == SwapStatus::Pending, ERR_SWAP_ALREADY_EXECUTED);
 
             let dex_router = self.dex_router.read();
-            assert(dex_router != contract_address_const::<0>(), ERR_DEX_ROUTER_NOT_SET);
+            assert(dex_router != ZERO_ADDRESS, ERR_DEX_ROUTER_NOT_SET);
 
             let current_time = get_block_timestamp();
             let plan_id = swap_request.plan_id;
@@ -1125,10 +1128,10 @@ pub mod InheritX {
                     asset_type: AssetType::STRK,
                     amount: 0,
                     nft_token_id: 0,
-                    nft_contract: contract_address_const::<0>(),
+                    nft_contract: ZERO_ADDRESS,
                     is_locked: false,
                     locked_at: 0,
-                    beneficiary: contract_address_const::<0>(),
+                    beneficiary: ZERO_ADDRESS,
                     release_conditions_count: 0,
                     fees: 0,
                     tax_liability: 0,
@@ -1147,7 +1150,7 @@ pub mod InheritX {
             ClaimCode {
                 code_hash,
                 plan_id: 0,
-                beneficiary: contract_address_const::<0>(),
+                beneficiary: ZERO_ADDRESS,
                 is_used: false,
                 generated_at: 0,
                 expires_at: 0,
@@ -1155,7 +1158,7 @@ pub mod InheritX {
                 attempts: 0,
                 is_revoked: false,
                 revoked_at: 0,
-                revoked_by: contract_address_const::<0>(),
+                revoked_by: ZERO_ADDRESS,
             }
         }
 
@@ -1205,7 +1208,7 @@ pub mod InheritX {
             self.assert_only_admin();
             self.assert_not_paused();
 
-            assert(wallet != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
@@ -1258,7 +1261,7 @@ pub mod InheritX {
             self.assert_only_admin();
             self.assert_not_paused();
 
-            assert(wallet != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
@@ -1271,7 +1274,7 @@ pub mod InheritX {
 
             // Clear freeze reason
             let empty_freeze_info = FreezeInfo {
-                reason: "", frozen_at: 0, frozen_by: contract_address_const::<0>(),
+                reason: "", frozen_at: 0, frozen_by: ZERO_ADDRESS,
             };
             self.freeze_reasons.write(wallet, empty_freeze_info);
 
@@ -1308,7 +1311,7 @@ pub mod InheritX {
             self.assert_only_admin();
             self.assert_not_paused();
 
-            assert(wallet != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
@@ -1354,7 +1357,7 @@ pub mod InheritX {
             self.assert_only_admin();
             self.assert_not_paused();
 
-            assert(wallet != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(wallet != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             // Allow empty reason for testing purposes
             // assert(reason.len() > 0, ERR_INVALID_INPUT);
 
@@ -1467,7 +1470,7 @@ pub mod InheritX {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(beneficiary != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             // Allow empty code hash for testing purposes
             // assert(code_hash.len() > 0, ERR_INVALID_INPUT);
             assert(expires_in > 0, ERR_INVALID_INPUT);
@@ -1490,7 +1493,7 @@ pub mod InheritX {
                 attempts: 0,
                 is_revoked: false,
                 revoked_at: 0,
-                revoked_by: contract_address_const::<0>(),
+                revoked_by: ZERO_ADDRESS,
             };
 
             // Store in plan-based map
@@ -1538,7 +1541,7 @@ pub mod InheritX {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(beneficiary != contract_address_const::<0>(), ERR_ZERO_ADDRESS);
+            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(expires_in > 0, ERR_INVALID_INPUT);
 
             // Verify beneficiary exists for this plan
@@ -1570,7 +1573,7 @@ pub mod InheritX {
                 attempts: 0,
                 is_revoked: false,
                 revoked_at: 0,
-                revoked_by: contract_address_const::<0>(),
+                revoked_by: ZERO_ADDRESS,
             };
 
             self.claim_codes.write(plan_id, claim_code_data);
@@ -1612,7 +1615,7 @@ pub mod InheritX {
                 status: KYCStatus::Pending,
                 uploaded_at: current_time,
                 approved_at: 0,
-                approved_by: contract_address_const::<0>(),
+                approved_by: ZERO_ADDRESS,
                 verification_score: 0,
                 fraud_risk: 0,
                 documents_count: 1,
@@ -1940,7 +1943,7 @@ pub mod InheritX {
             assert(plan_description.len() > 0, ERR_INVALID_INPUT);
             assert(owner_email_hash.len() > 0, ERR_INVALID_INPUT);
             assert(initial_beneficiary_email.len() > 0, ERR_INVALID_INPUT);
-            assert(initial_beneficiary != contract_address_const::<0>(), ERR_INVALID_ADDRESS);
+            assert(initial_beneficiary != ZERO_ADDRESS, ERR_INVALID_ADDRESS);
 
             // Generate basic info ID
             let basic_info_id = self.plan_count.read() + 1;
@@ -2157,11 +2160,11 @@ pub mod InheritX {
                 asset_type: AssetType::STRK, // Default - would be set based on asset allocations
                 asset_amount: 0, // Would be calculated from asset allocations
                 nft_token_id: 0,
-                nft_contract: contract_address_const::<0>(), // No NFT contract
+                nft_contract: ZERO_ADDRESS, // No NFT contract
                 timeframe: 31536000, // 1 year default
                 created_at: basic_info.created_at,
                 becomes_active_at: starknet::get_block_timestamp(),
-                guardian: contract_address_const::<0>(), // Would be set from rules
+                guardian: ZERO_ADDRESS, // Would be set from rules
                 encrypted_details: "",
                 status: PlanStatus::Active,
                 is_claimed: false,

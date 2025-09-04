@@ -5,7 +5,13 @@ pub mod base {
 }
 
 pub mod interfaces {
+    pub mod iclaim;
+    pub mod icore;
     pub mod iinheritx;
+    pub mod ikyc;
 }
+pub mod claim;
+pub mod core;
 
 pub mod inheritx;
+pub mod kyc;

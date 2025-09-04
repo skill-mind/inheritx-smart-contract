@@ -141,6 +141,24 @@ pub struct ClaimCodeExpired {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct ClaimCodeStored {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub code_hash: ByteArray,
+    pub stored_at: u64,
+    pub expires_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct InheritanceClaimed {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub claimed_at: u64,
+    pub claim_code: ByteArray,
+    pub amount: u256,
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct BeneficiaryIdentityVerified {
     pub plan_id: u256,
     pub beneficiary: ContractAddress,
