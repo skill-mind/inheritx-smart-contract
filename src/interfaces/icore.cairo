@@ -211,4 +211,44 @@ pub trait IInheritXCore<TContractState> {
     fn update_inactivity_threshold(ref self: TContractState, plan_id: u256, new_threshold: u64);
 
     fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
+
+    // ================ FEE MANAGEMENT FUNCTIONS ================
+
+    fn update_fee_config(
+        ref self: TContractState, new_fee_percentage: u256, new_fee_recipient: ContractAddress,
+    );
+
+    fn get_fee_config(self: @TContractState) -> FeeConfig;
+
+    fn calculate_fee(self: @TContractState, amount: u256) -> u256;
+
+    fn collect_fee(
+        ref self: TContractState, plan_id: u256, beneficiary: ContractAddress, gross_amount: u256,
+    ) -> u256;
+
+    // ================ WITHDRAWAL FUNCTIONS ================
+
+    fn create_withdrawal_request(
+        ref self: TContractState,
+        plan_id: u256,
+        asset_type: u8,
+        withdrawal_type: u8,
+        amount: u256,
+        nft_token_id: u256,
+        nft_contract: ContractAddress,
+    ) -> u256;
+
+    fn approve_withdrawal_request(ref self: TContractState, request_id: u256);
+
+    fn process_withdrawal_request(ref self: TContractState, request_id: u256);
+
+    fn reject_withdrawal_request(ref self: TContractState, request_id: u256, reason: ByteArray);
+
+    fn cancel_withdrawal_request(ref self: TContractState, request_id: u256, reason: ByteArray);
+
+    fn get_withdrawal_request(self: @TContractState, request_id: u256) -> WithdrawalRequest;
+
+    fn get_beneficiary_withdrawal_requests(
+        self: @TContractState, beneficiary: ContractAddress, limit: u256,
+    ) -> Array<u256>;
 }

@@ -641,6 +641,56 @@ pub struct ActivityMetadata {
     pub additional_data: ByteArray,
 }
 
+// Fee configuration
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct FeeConfig {
+    pub fee_percentage: u256, // Fee percentage in basis points (200 = 2%)
+    pub fee_recipient: ContractAddress, // Address to receive fees
+    pub is_active: bool, // Whether fees are currently active
+    pub min_fee: u256, // Minimum fee amount
+    pub max_fee: u256 // Maximum fee amount
+}
+
+// Withdrawal request
+#[derive(Serde, Drop, Clone, Copy, starknet::Store, PartialEq)]
+pub struct WithdrawalRequest {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: AssetType,
+    pub withdrawal_type: WithdrawalType,
+    pub amount: u256, // For percentage withdrawals, this is the percentage
+    pub nft_token_id: u256, // For NFT withdrawals
+    pub nft_contract: ContractAddress, // For NFT withdrawals
+    pub status: WithdrawalStatus,
+    pub requested_at: u64,
+    pub processed_at: u64,
+    pub processed_by: ContractAddress,
+    pub fees_deducted: u256,
+    pub net_amount: u256,
+}
+
+// Withdrawal type enum
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum WithdrawalType {
+    All, // Withdraw all assets
+    Percentage, // Withdraw a percentage
+    FixedAmount, // Withdraw a fixed amount
+    NFT // Withdraw specific NFT
+}
+
+// Withdrawal status enum
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum WithdrawalStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Processed,
+    Cancelled,
+}
+
 // Enhanced asset allocation
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct AssetAllocation {

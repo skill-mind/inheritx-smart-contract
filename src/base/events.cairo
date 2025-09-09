@@ -681,3 +681,91 @@ pub struct InactivityThresholdUpdated {
     pub new_threshold: u64,
     pub updated_at: u64,
 }
+
+// ================ FEE EVENTS ================
+
+/// @notice Emitted when fees are collected from an inheritance claim
+#[derive(Drop, starknet::Event)]
+pub struct FeeCollected {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub fee_amount: u256,
+    pub fee_percentage: u256,
+    pub gross_amount: u256,
+    pub net_amount: u256,
+    pub fee_recipient: ContractAddress,
+    pub collected_at: u64,
+}
+
+/// @notice Emitted when fee configuration is updated
+#[derive(Drop, starknet::Event)]
+pub struct FeeConfigUpdated {
+    pub old_fee_percentage: u256,
+    pub new_fee_percentage: u256,
+    pub old_fee_recipient: ContractAddress,
+    pub new_fee_recipient: ContractAddress,
+    pub updated_by: ContractAddress,
+    pub updated_at: u64,
+}
+
+// ================ WITHDRAWAL EVENTS ================
+
+/// @notice Emitted when a withdrawal request is created
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestCreated {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: u8,
+    pub withdrawal_type: u8,
+    pub amount: u256,
+    pub nft_token_id: u256,
+    pub nft_contract: ContractAddress,
+    pub requested_at: u64,
+}
+
+/// @notice Emitted when a withdrawal request is approved
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestApproved {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub approved_by: ContractAddress,
+    pub approved_at: u64,
+    pub fees_deducted: u256,
+    pub net_amount: u256,
+}
+
+/// @notice Emitted when a withdrawal request is processed
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestProcessed {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: u8,
+    pub amount: u256,
+    pub processed_at: u64,
+    pub transaction_hash: ByteArray,
+}
+
+/// @notice Emitted when a withdrawal request is rejected
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestRejected {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub rejected_by: ContractAddress,
+    pub rejected_at: u64,
+    pub rejection_reason: ByteArray,
+}
+
+/// @notice Emitted when a withdrawal request is cancelled
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestCancelled {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub cancelled_by: ContractAddress,
+    pub cancelled_at: u64,
+    pub cancellation_reason: ByteArray,
+}

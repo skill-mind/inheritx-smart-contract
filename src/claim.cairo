@@ -513,6 +513,10 @@ pub mod InheritXClaim {
             updated_plan.is_claimed = true;
             self.inheritance_plans.write(plan_id, updated_plan);
 
+            // Note: Fee collection would be handled by the core contract
+            // when the actual asset transfer happens. The claim contract
+            // only handles the claim verification and plan status update.
+
             // Emit InheritanceClaimed event
             self
                 .emit(

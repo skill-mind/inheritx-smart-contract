@@ -86,3 +86,8 @@ pub const ERR_WALLET_NOT_BLACKLISTED: felt252 = 'Wallet not blacklisted';
 // Plan creation flow errors
 pub const ERR_INVALID_ADDRESS: felt252 = 'Invalid address';
 pub const ERR_INVALID_STATE: felt252 = 'Invalid state';
+
+// Withdrawal errors
+pub const ERR_WITHDRAWAL_REQUEST_NOT_FOUND: felt252 = 'Withdrawal request not found';
+pub const ERR_WITHDRAWAL_ALREADY_PROCESSED: felt252 = 'Withdrawal already processed';
+pub const ERR_WITHDRAWAL_NOT_APPROVED: felt252 = 'Withdrawal not approved';

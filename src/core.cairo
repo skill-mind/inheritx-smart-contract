@@ -121,7 +121,19 @@ pub mod InheritXCore {
         >, // (plan_id, beneficiary_index) -> beneficiary
         disbursement_beneficiary_count: Map<u256, u8>, // plan_id -> beneficiary count
         monthly_disbursement_count: Map<(), u256>, // Global counter
-        monthly_disbursement_execution_count: Map<(), u256> // Execution counter
+        monthly_disbursement_execution_count: Map<(), u256>, // Execution counter
+        // Fee system storage
+        fee_config: FeeConfig,
+        total_fees_collected: u256,
+        plan_fees_collected: Map<u256, u256>, // plan_id -> total fees collected
+        // Withdrawal system storage
+        withdrawal_requests: Map<u256, WithdrawalRequest>, // request_id -> withdrawal request
+        withdrawal_request_count: u256,
+        plan_withdrawal_requests: Map<u256, u256>, // plan_id -> withdrawal_request_id
+        beneficiary_withdrawal_requests: Map<
+            (ContractAddress, u256), u256,
+        >, // (beneficiary, index) -> request_id
+        beneficiary_withdrawal_count: Map<ContractAddress, u256> // beneficiary -> withdrawal count
     }
 
     #[event]
@@ -161,6 +173,15 @@ pub mod InheritXCore {
         PlanTimeframeExtended: PlanTimeframeExtended,
         PlanParametersUpdated: PlanParametersUpdated,
         InactivityThresholdUpdated: InactivityThresholdUpdated,
+        // Fee events
+        FeeCollected: FeeCollected,
+        FeeConfigUpdated: FeeConfigUpdated,
+        // Withdrawal events
+        WithdrawalRequestCreated: WithdrawalRequestCreated,
+        WithdrawalRequestApproved: WithdrawalRequestApproved,
+        WithdrawalRequestProcessed: WithdrawalRequestProcessed,
+        WithdrawalRequestRejected: WithdrawalRequestRejected,
+        WithdrawalRequestCancelled: WithdrawalRequestCancelled,
     }
 
     #[constructor]
@@ -185,6 +206,8 @@ pub mod InheritXCore {
         self.escrow_count.write(0);
         self.monthly_disbursement_count.write((), 0);
         self.monthly_disbursement_execution_count.write((), 0);
+        self.withdrawal_request_count.write(0);
+        self.total_fees_collected.write(0);
 
         // Initialize default security settings
         let default_security = SecuritySettings {
@@ -199,6 +222,16 @@ pub mod InheritXCore {
             emergency_timeout: 604800 // 7 days
         };
         self.security_settings.write(default_security);
+
+        // Initialize fee configuration (2% fee)
+        let default_fee_config = FeeConfig {
+            fee_percentage: 200, // 2% in basis points
+            fee_recipient: admin, // Admin receives fees initially
+            is_active: true,
+            min_fee: 1000000000000000, // 0.001 STRK minimum fee
+            max_fee: 100000000000000000000 // 100 STRK maximum fee
+        };
+        self.fee_config.write(default_fee_config);
     }
 
     impl SecurityImpl of CoreSecurityTrait {
@@ -898,7 +931,7 @@ pub mod InheritXCore {
             updated_plan.status = PlanStatus::AssetsReleased;
             self.inheritance_plans.write(plan_id, updated_plan);
 
-            // Transfer the actual assets to the beneficiary
+            // Transfer the actual assets to the beneficiary with fee collection
             let escrow = self.escrow_accounts.read(escrow_id);
             let plan = self.inheritance_plans.read(plan_id);
 
@@ -907,27 +940,67 @@ pub mod InheritXCore {
                     let strk_token = IERC20Dispatcher { contract_address: self.strk_token.read() };
                     let balance = strk_token.balance_of(get_contract_address());
                     assert(balance >= escrow.amount, ERR_INSUFFICIENT_BALANCE);
-                    let success = strk_token.transfer(beneficiary, escrow.amount);
+
+                    // Calculate and collect fees
+                    let net_amount = self.collect_fee(plan_id, beneficiary, escrow.amount);
+                    let fee_amount = escrow.amount - net_amount;
+
+                    // Transfer net amount to beneficiary
+                    let success = strk_token.transfer(beneficiary, net_amount);
                     assert(success, ERR_TRANSFER_FAILED);
+
+                    // Transfer fee to fee recipient
+                    if fee_amount > 0 {
+                        let fee_config = self.fee_config.read();
+                        let fee_success = strk_token.transfer(fee_config.fee_recipient, fee_amount);
+                        assert(fee_success, ERR_TRANSFER_FAILED);
+                    }
                 },
                 AssetType::USDT => {
                     let usdt_token = IERC20Dispatcher { contract_address: self.usdt_token.read() };
                     let balance = usdt_token.balance_of(get_contract_address());
                     assert(balance >= escrow.amount, ERR_INSUFFICIENT_BALANCE);
-                    let success = usdt_token.transfer(beneficiary, escrow.amount);
+
+                    // Calculate and collect fees
+                    let net_amount = self.collect_fee(plan_id, beneficiary, escrow.amount);
+                    let fee_amount = escrow.amount - net_amount;
+
+                    // Transfer net amount to beneficiary
+                    let success = usdt_token.transfer(beneficiary, net_amount);
                     assert(success, ERR_TRANSFER_FAILED);
+
+                    // Transfer fee to fee recipient
+                    if fee_amount > 0 {
+                        let fee_config = self.fee_config.read();
+                        let fee_success = usdt_token.transfer(fee_config.fee_recipient, fee_amount);
+                        assert(fee_success, ERR_TRANSFER_FAILED);
+                    }
                 },
                 AssetType::USDC => {
                     let usdc_token = IERC20Dispatcher { contract_address: self.usdc_token.read() };
                     let balance = usdc_token.balance_of(get_contract_address());
                     assert(balance >= escrow.amount, ERR_INSUFFICIENT_BALANCE);
-                    let success = usdc_token.transfer(beneficiary, escrow.amount);
+
+                    // Calculate and collect fees
+                    let net_amount = self.collect_fee(plan_id, beneficiary, escrow.amount);
+                    let fee_amount = escrow.amount - net_amount;
+
+                    // Transfer net amount to beneficiary
+                    let success = usdc_token.transfer(beneficiary, net_amount);
                     assert(success, ERR_TRANSFER_FAILED);
+
+                    // Transfer fee to fee recipient
+                    if fee_amount > 0 {
+                        let fee_config = self.fee_config.read();
+                        let fee_success = usdc_token.transfer(fee_config.fee_recipient, fee_amount);
+                        assert(fee_success, ERR_TRANSFER_FAILED);
+                    }
                 },
                 AssetType::NFT => {
                     assert(escrow.nft_token_id > 0, ERR_INVALID_NFT_TOKEN);
                     assert(escrow.nft_contract != ZERO_ADDRESS, ERR_INVALID_INPUT);
 
+                    // For NFTs, we don't apply percentage fees, but we can collect a fixed fee
                     // Transfer NFT using ERC721 interface
                     let nft_contract = IERC721Dispatcher { contract_address: escrow.nft_contract };
                     let current_owner = nft_contract.owner_of(escrow.nft_token_id);
@@ -935,6 +1008,21 @@ pub mod InheritXCore {
 
                     nft_contract
                         .transfer_from(get_contract_address(), beneficiary, escrow.nft_token_id);
+
+                    // Emit fee collection event for NFT (with 0 fee amount)
+                    self
+                        .emit(
+                            FeeCollected {
+                                plan_id,
+                                beneficiary,
+                                fee_amount: 0,
+                                fee_percentage: 0,
+                                gross_amount: 1, // NFT count
+                                net_amount: 1,
+                                fee_recipient: ZERO_ADDRESS,
+                                collected_at: get_block_timestamp(),
+                            },
+                        );
                 },
             }
 
@@ -1281,6 +1369,364 @@ pub mod InheritXCore {
 
         fn get_beneficiary_count(self: @ContractState, basic_info_id: u256) -> u256 {
             self.plan_beneficiary_count.read(basic_info_id)
+        }
+
+        // ================ FEE MANAGEMENT FUNCTIONS ================
+
+        fn update_fee_config(
+            ref self: ContractState, new_fee_percentage: u256, new_fee_recipient: ContractAddress,
+        ) {
+            self.assert_only_admin();
+            assert(new_fee_percentage <= 1000, ERR_INVALID_INPUT); // Max 10%
+            assert(new_fee_recipient != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
+
+            let current_config = self.fee_config.read();
+            let old_fee_percentage = current_config.fee_percentage;
+            let old_fee_recipient = current_config.fee_recipient;
+
+            let mut updated_config = current_config;
+            updated_config.fee_percentage = new_fee_percentage;
+            updated_config.fee_recipient = new_fee_recipient;
+            self.fee_config.write(updated_config);
+
+            self
+                .emit(
+                    FeeConfigUpdated {
+                        old_fee_percentage,
+                        new_fee_percentage,
+                        old_fee_recipient,
+                        new_fee_recipient,
+                        updated_by: get_caller_address(),
+                        updated_at: get_block_timestamp(),
+                    },
+                );
+        }
+
+        fn get_fee_config(self: @ContractState) -> FeeConfig {
+            self.fee_config.read()
+        }
+
+        fn calculate_fee(self: @ContractState, amount: u256) -> u256 {
+            let config = self.fee_config.read();
+            if !config.is_active {
+                return 0;
+            }
+
+            let fee = (amount * config.fee_percentage)
+                / 10000; // Convert basis points to percentage
+            if fee < config.min_fee {
+                return config.min_fee;
+            }
+            if fee > config.max_fee {
+                return config.max_fee;
+            }
+            fee
+        }
+
+        fn collect_fee(
+            ref self: ContractState,
+            plan_id: u256,
+            beneficiary: ContractAddress,
+            gross_amount: u256,
+        ) -> u256 {
+            let fee_amount = self.calculate_fee(gross_amount);
+            if fee_amount == 0 {
+                return gross_amount;
+            }
+
+            let net_amount = gross_amount - fee_amount;
+            let config = self.fee_config.read();
+
+            // Update fee tracking
+            let current_total = self.total_fees_collected.read();
+            self.total_fees_collected.write(current_total + fee_amount);
+
+            let current_plan_fees = self.plan_fees_collected.read(plan_id);
+            self.plan_fees_collected.write(plan_id, current_plan_fees + fee_amount);
+
+            self
+                .emit(
+                    FeeCollected {
+                        plan_id,
+                        beneficiary,
+                        fee_amount,
+                        fee_percentage: config.fee_percentage,
+                        gross_amount,
+                        net_amount,
+                        fee_recipient: config.fee_recipient,
+                        collected_at: get_block_timestamp(),
+                    },
+                );
+
+            net_amount
+        }
+
+        // ================ WITHDRAWAL FUNCTIONS ================
+
+        fn create_withdrawal_request(
+            ref self: ContractState,
+            plan_id: u256,
+            asset_type: u8,
+            withdrawal_type: u8,
+            amount: u256,
+            nft_token_id: u256,
+            nft_contract: ContractAddress,
+        ) -> u256 {
+            self.assert_not_paused();
+            self.assert_plan_exists(plan_id);
+
+            let caller = get_caller_address();
+            let plan = self.inheritance_plans.read(plan_id);
+
+            // Verify caller is a beneficiary
+            let beneficiary_index = self.beneficiary_by_address.read((plan_id, caller));
+            assert(beneficiary_index > 0, ERR_UNAUTHORIZED);
+
+            // Verify plan is claimed
+            assert(plan.is_claimed, ERR_PLAN_ALREADY_CLAIMED);
+
+            // Verify withdrawal type and amount
+            let withdrawal_type_enum = if withdrawal_type == 0 {
+                WithdrawalType::All
+            } else if withdrawal_type == 1 {
+                WithdrawalType::Percentage
+            } else if withdrawal_type == 2 {
+                WithdrawalType::FixedAmount
+            } else if withdrawal_type == 3 {
+                WithdrawalType::NFT
+            } else {
+                assert(false, ERR_INVALID_INPUT);
+                WithdrawalType::All // This will never be reached
+            };
+
+            if withdrawal_type_enum == WithdrawalType::Percentage {
+                assert(amount > 0 && amount <= 100, ERR_INVALID_INPUT);
+            } else if withdrawal_type_enum == WithdrawalType::FixedAmount {
+                assert(amount > 0, ERR_INVALID_INPUT);
+            }
+
+            let request_id = self.withdrawal_request_count.read() + 1;
+            let current_time = get_block_timestamp();
+
+            let withdrawal_request = WithdrawalRequest {
+                request_id,
+                plan_id,
+                beneficiary: caller,
+                asset_type: SecurityImpl::u8_to_asset_type(asset_type),
+                withdrawal_type: withdrawal_type_enum,
+                amount,
+                nft_token_id,
+                nft_contract,
+                status: WithdrawalStatus::Pending,
+                requested_at: current_time,
+                processed_at: 0,
+                processed_by: ZERO_ADDRESS,
+                fees_deducted: 0,
+                net_amount: 0,
+            };
+
+            self.withdrawal_requests.write(request_id, withdrawal_request);
+            self.withdrawal_request_count.write(request_id);
+
+            // Link to plan and beneficiary
+            self.plan_withdrawal_requests.write(plan_id, request_id);
+            let beneficiary_count = self.beneficiary_withdrawal_count.read(caller);
+            self.beneficiary_withdrawal_requests.write((caller, beneficiary_count), request_id);
+            self.beneficiary_withdrawal_count.write(caller, beneficiary_count + 1);
+
+            self
+                .emit(
+                    WithdrawalRequestCreated {
+                        request_id,
+                        plan_id,
+                        beneficiary: caller,
+                        asset_type,
+                        withdrawal_type,
+                        amount,
+                        nft_token_id,
+                        nft_contract,
+                        requested_at: current_time,
+                    },
+                );
+
+            request_id
+        }
+
+        fn approve_withdrawal_request(ref self: ContractState, request_id: u256) {
+            self.assert_only_admin();
+
+            let mut request = self.withdrawal_requests.read(request_id);
+            assert(request.status == WithdrawalStatus::Pending, ERR_WITHDRAWAL_ALREADY_PROCESSED);
+
+            let plan = self.inheritance_plans.read(request.plan_id);
+            assert(plan.is_claimed, ERR_PLAN_ALREADY_CLAIMED);
+
+            // Calculate fees and net amount
+            let gross_amount = match request.withdrawal_type {
+                WithdrawalType::All => plan.asset_amount,
+                WithdrawalType::Percentage => (plan.asset_amount * request.amount) / 100,
+                WithdrawalType::FixedAmount => request.amount,
+                WithdrawalType::NFT => 1 // NFT withdrawal
+            };
+
+            let fee_amount = self.calculate_fee(gross_amount);
+            let net_amount = gross_amount - fee_amount;
+
+            request.status = WithdrawalStatus::Approved;
+            request.processed_at = get_block_timestamp();
+            request.processed_by = get_caller_address();
+            request.fees_deducted = fee_amount;
+            request.net_amount = net_amount;
+
+            self.withdrawal_requests.write(request_id, request);
+
+            self
+                .emit(
+                    WithdrawalRequestApproved {
+                        request_id,
+                        plan_id: request.plan_id,
+                        beneficiary: request.beneficiary,
+                        approved_by: get_caller_address(),
+                        approved_at: get_block_timestamp(),
+                        fees_deducted: fee_amount,
+                        net_amount,
+                    },
+                );
+        }
+
+        fn process_withdrawal_request(ref self: ContractState, request_id: u256) {
+            self.assert_only_admin();
+
+            let mut request = self.withdrawal_requests.read(request_id);
+            assert(request.status == WithdrawalStatus::Approved, ERR_WITHDRAWAL_NOT_APPROVED);
+
+            let _plan = self.inheritance_plans.read(request.plan_id);
+
+            // Process the withdrawal based on asset type
+            match request.asset_type {
+                AssetType::STRK => {
+                    let strk_token = IERC20Dispatcher { contract_address: self.strk_token.read() };
+                    strk_token.transfer(request.beneficiary, request.net_amount);
+                },
+                AssetType::USDT => {
+                    let usdt_token = IERC20Dispatcher { contract_address: self.usdt_token.read() };
+                    usdt_token.transfer(request.beneficiary, request.net_amount);
+                },
+                AssetType::USDC => {
+                    let usdc_token = IERC20Dispatcher { contract_address: self.usdc_token.read() };
+                    usdc_token.transfer(request.beneficiary, request.net_amount);
+                },
+                AssetType::NFT => {
+                    let nft_contract = IERC721Dispatcher { contract_address: request.nft_contract };
+                    nft_contract
+                        .transfer_from(
+                            get_contract_address(), request.beneficiary, request.nft_token_id,
+                        );
+                },
+            }
+
+            request.status = WithdrawalStatus::Processed;
+            request.processed_at = get_block_timestamp();
+            self.withdrawal_requests.write(request_id, request);
+
+            // Read the request again to avoid move issues
+            let processed_request = self.withdrawal_requests.read(request_id);
+            self
+                .emit(
+                    WithdrawalRequestProcessed {
+                        request_id,
+                        plan_id: processed_request.plan_id,
+                        beneficiary: processed_request.beneficiary,
+                        asset_type: match processed_request.asset_type {
+                            AssetType::STRK => 0,
+                            AssetType::USDT => 1,
+                            AssetType::USDC => 2,
+                            AssetType::NFT => 3,
+                        },
+                        amount: processed_request.net_amount,
+                        processed_at: get_block_timestamp(),
+                        transaction_hash: "" // In real implementation, this would be the actual tx hash
+                    },
+                );
+        }
+
+        fn reject_withdrawal_request(ref self: ContractState, request_id: u256, reason: ByteArray) {
+            self.assert_only_admin();
+
+            let mut request = self.withdrawal_requests.read(request_id);
+            assert(request.status == WithdrawalStatus::Pending, ERR_WITHDRAWAL_ALREADY_PROCESSED);
+
+            request.status = WithdrawalStatus::Rejected;
+            request.processed_at = get_block_timestamp();
+            request.processed_by = get_caller_address();
+            self.withdrawal_requests.write(request_id, request);
+
+            // Read the request again to avoid move issues
+            let rejected_request = self.withdrawal_requests.read(request_id);
+            self
+                .emit(
+                    WithdrawalRequestRejected {
+                        request_id,
+                        plan_id: rejected_request.plan_id,
+                        beneficiary: rejected_request.beneficiary,
+                        rejected_by: get_caller_address(),
+                        rejected_at: get_block_timestamp(),
+                        rejection_reason: reason,
+                    },
+                );
+        }
+
+        fn cancel_withdrawal_request(ref self: ContractState, request_id: u256, reason: ByteArray) {
+            let caller = get_caller_address();
+            let mut request = self.withdrawal_requests.read(request_id);
+
+            // Only the beneficiary or admin can cancel
+            assert(request.beneficiary == caller || self.admin.read() == caller, ERR_UNAUTHORIZED);
+            assert(request.status == WithdrawalStatus::Pending, ERR_WITHDRAWAL_ALREADY_PROCESSED);
+
+            request.status = WithdrawalStatus::Cancelled;
+            request.processed_at = get_block_timestamp();
+            request.processed_by = caller;
+            self.withdrawal_requests.write(request_id, request);
+
+            // Read the request again to avoid move issues
+            let cancelled_request = self.withdrawal_requests.read(request_id);
+            self
+                .emit(
+                    WithdrawalRequestCancelled {
+                        request_id,
+                        plan_id: cancelled_request.plan_id,
+                        beneficiary: cancelled_request.beneficiary,
+                        cancelled_by: caller,
+                        cancelled_at: get_block_timestamp(),
+                        cancellation_reason: reason,
+                    },
+                );
+        }
+
+        fn get_withdrawal_request(self: @ContractState, request_id: u256) -> WithdrawalRequest {
+            self.withdrawal_requests.read(request_id)
+        }
+
+        fn get_beneficiary_withdrawal_requests(
+            self: @ContractState, beneficiary: ContractAddress, limit: u256,
+        ) -> Array<u256> {
+            let mut requests = ArrayTrait::new();
+            let count = self.beneficiary_withdrawal_count.read(beneficiary);
+            let mut i: u256 = 0;
+            let max_count = if count < limit {
+                count
+            } else {
+                limit
+            };
+
+            while i != max_count {
+                let request_id = self.beneficiary_withdrawal_requests.read((beneficiary, i));
+                requests.append(request_id);
+                i += 1;
+            }
+
+            requests
         }
     }
 }
