@@ -118,7 +118,20 @@ pub mod InheritXKYC {
             self.kyc_data.write(caller, kyc_data);
             let current_count = self.pending_kyc_count.read();
             self.pending_kyc_count.write(current_count + 1);
-            // TODO: Emit KYCUploaded event when event system is properly configured
+
+            // Emit KYCUploaded event
+            self
+                .emit(
+                    KYCUploaded {
+                        user_address: caller,
+                        kyc_hash: kyc_hash,
+                        user_type: user_type,
+                        uploaded_at: current_time,
+                        documents_count: 1,
+                        verification_score: 0,
+                        fraud_risk: 0,
+                    },
+                );
         }
 
         fn approve_kyc(
@@ -139,7 +152,20 @@ pub mod InheritXKYC {
             // Decrease pending count
             let current_count = self.pending_kyc_count.read();
             self.pending_kyc_count.write(current_count - 1);
-            // TODO: Emit KYCApproved event when event system is properly configured
+
+            // Read the data again to avoid move issues
+            let approved_kyc_data = self.kyc_data.read(user_address);
+            // Emit KYCApproved event
+            self
+                .emit(
+                    KYCApproved {
+                        user_address,
+                        approved_by: get_caller_address(),
+                        approved_at: approved_kyc_data.approved_at,
+                        approval_notes,
+                        final_verification_score: approved_kyc_data.verification_score,
+                    },
+                );
         }
 
         fn reject_kyc(
@@ -157,7 +183,20 @@ pub mod InheritXKYC {
             // Decrease pending count
             let current_count = self.pending_kyc_count.read();
             self.pending_kyc_count.write(current_count - 1);
-            // TODO: Emit KYCRejected event when event system is properly configured
+
+            // Read the data again to avoid move issues
+            let rejected_kyc_data = self.kyc_data.read(user_address);
+            // Emit KYCRejected event
+            self
+                .emit(
+                    KYCRejected {
+                        user_address,
+                        rejected_by: get_caller_address(),
+                        rejected_at: get_block_timestamp(),
+                        rejection_reason,
+                        fraud_risk_score: rejected_kyc_data.fraud_risk,
+                    },
+                );
         }
 
         fn get_kyc_data(self: @ContractState, user_address: ContractAddress) -> KYCData {
@@ -166,6 +205,28 @@ pub mod InheritXKYC {
 
         fn get_pending_kyc_count(self: @ContractState) -> u256 {
             self.pending_kyc_count.read()
+        }
+
+        fn emit_beneficiary_identity_verified(
+            ref self: ContractState,
+            plan_id: u256,
+            beneficiary_address: ContractAddress,
+            verification_method: ByteArray,
+            verification_score: u8,
+        ) {
+            self.assert_not_paused();
+
+            // Emit BeneficiaryIdentityVerified event
+            self
+                .emit(
+                    BeneficiaryIdentityVerified {
+                        plan_id,
+                        beneficiary: beneficiary_address,
+                        verified_at: get_block_timestamp(),
+                        verification_method,
+                        verification_score,
+                    },
+                );
         }
 
         fn verify_beneficiary_identity(
@@ -187,7 +248,8 @@ pub mod InheritXKYC {
                 return false;
             }
 
-            // TODO: Emit BeneficiaryIdentityVerified event when event system is properly configured
+            // Note: BeneficiaryIdentityVerified event should be emitted by the calling contract
+            // since this is a view function and cannot emit events
 
             true
         }

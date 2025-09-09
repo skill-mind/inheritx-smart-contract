@@ -103,6 +103,7 @@ pub mod InheritXClaim {
         ClaimCodeStored: crate::base::events::ClaimCodeStored,
         InheritanceClaimed: crate::base::events::InheritanceClaimed,
         BeneficiaryIdentityVerified: crate::base::events::BeneficiaryIdentityVerified,
+        ClaimCodeRevoked: crate::base::events::ClaimCodeRevoked,
     }
 
     #[constructor]
@@ -271,27 +272,70 @@ pub mod InheritXClaim {
             )
         }
 
-        fn get_claim_code(self: @ContractState, code_hash: ByteArray) -> ClaimCode {
-            // Since we can't easily use ByteArray as storage key, we'll return a default
-            // In a real implementation, this would use a different approach like indexing
-            ClaimCode {
-                code_hash,
-                plan_id: 0,
-                beneficiary: ZERO_ADDRESS,
-                is_used: false,
-                generated_at: 0,
-                expires_at: 0,
-                used_at: 0,
-                attempts: 0,
-                is_revoked: false,
-                revoked_at: 0,
-                revoked_by: ZERO_ADDRESS,
-            }
+        fn get_claim_code(self: @ContractState, plan_id: u256) -> ClaimCode {
+            // Get claim code by plan_id since we store it that way
+            self.claim_codes.read(plan_id)
         }
 
         fn hash_claim_code(self: @ContractState, code: ByteArray) -> ByteArray {
             // Delegate to the internal implementation
             ClaimCodeInternalTraitImpl::hash_claim_code(self, code)
+        }
+
+        // ================ QUERY FUNCTIONS ================
+
+        fn is_claim_code_used(self: @ContractState, plan_id: u256) -> bool {
+            let claim_code = self.claim_codes.read(plan_id);
+            claim_code.is_used
+        }
+
+        fn is_claim_code_expired(self: @ContractState, plan_id: u256) -> bool {
+            let claim_code = self.claim_codes.read(plan_id);
+            let current_time = get_block_timestamp();
+            current_time > claim_code.expires_at
+        }
+
+        fn is_claim_code_revoked(self: @ContractState, plan_id: u256) -> bool {
+            let claim_code = self.claim_codes.read(plan_id);
+            claim_code.is_revoked
+        }
+
+        fn get_claim_code_attempts(self: @ContractState, plan_id: u256) -> u8 {
+            let claim_code = self.claim_codes.read(plan_id);
+            claim_code.attempts
+        }
+
+        fn get_claim_code_expiry(self: @ContractState, plan_id: u256) -> u64 {
+            let claim_code = self.claim_codes.read(plan_id);
+            claim_code.expires_at
+        }
+
+        fn revoke_claim_code(ref self: ContractState, plan_id: u256, reason: ByteArray) {
+            self.assert_only_admin();
+            self.assert_plan_exists(plan_id);
+
+            let mut claim_code = self.claim_codes.read(plan_id);
+            assert(!claim_code.is_used, ERR_CLAIM_CODE_ALREADY_USED);
+            assert(!claim_code.is_revoked, ERR_CLAIM_CODE_REVOKED);
+
+            claim_code.is_revoked = true;
+            claim_code.revoked_at = get_block_timestamp();
+            claim_code.revoked_by = get_caller_address();
+            self.claim_codes.write(plan_id, claim_code);
+
+            // Read the claim code again to avoid move issues
+            let revoked_claim_code = self.claim_codes.read(plan_id);
+            self
+                .emit(
+                    crate::base::events::ClaimCodeRevoked {
+                        plan_id,
+                        beneficiary: revoked_claim_code.beneficiary,
+                        code_hash: revoked_claim_code.code_hash,
+                        revoked_at: revoked_claim_code.revoked_at,
+                        revoked_by: revoked_claim_code.revoked_by,
+                        revocation_reason: reason,
+                    },
+                );
         }
 
         // ================ ADMIN FUNCTIONS ================

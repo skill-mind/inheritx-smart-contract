@@ -32,9 +32,23 @@ pub trait IInheritXClaim<TContractState> {
         name_hash: ByteArray,
     ) -> bool;
 
-    fn get_claim_code(self: @TContractState, code_hash: ByteArray) -> ClaimCode;
+    fn get_claim_code(self: @TContractState, plan_id: u256) -> ClaimCode;
 
     fn hash_claim_code(self: @TContractState, code: ByteArray) -> ByteArray;
+
+    // ================ QUERY FUNCTIONS ================
+
+    fn is_claim_code_used(self: @TContractState, plan_id: u256) -> bool;
+
+    fn is_claim_code_expired(self: @TContractState, plan_id: u256) -> bool;
+
+    fn is_claim_code_revoked(self: @TContractState, plan_id: u256) -> bool;
+
+    fn get_claim_code_attempts(self: @TContractState, plan_id: u256) -> u8;
+
+    fn get_claim_code_expiry(self: @TContractState, plan_id: u256) -> u64;
+
+    fn revoke_claim_code(ref self: TContractState, plan_id: u256, reason: ByteArray);
 
     // ================ ADMIN FUNCTIONS ================
 

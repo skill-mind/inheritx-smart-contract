@@ -642,7 +642,7 @@ pub struct ActivityMetadata {
 }
 
 // Fee configuration
-#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+#[derive(Serde, Drop, Clone, Copy, starknet::Store, PartialEq)]
 pub struct FeeConfig {
     pub fee_percentage: u256, // Fee percentage in basis points (200 = 2%)
     pub fee_recipient: ContractAddress, // Address to receive fees

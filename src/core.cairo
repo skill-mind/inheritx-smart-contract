@@ -1728,5 +1728,82 @@ pub mod InheritXCore {
 
             requests
         }
+
+        // ================ STATISTICS AND QUERY FUNCTIONS ================
+
+        fn get_total_fees_collected(self: @ContractState) -> u256 {
+            self.total_fees_collected.read()
+        }
+
+        fn get_plan_fees_collected(self: @ContractState, plan_id: u256) -> u256 {
+            self.plan_fees_collected.read(plan_id)
+        }
+
+        fn get_withdrawal_request_count(self: @ContractState) -> u256 {
+            self.withdrawal_request_count.read()
+        }
+
+        fn get_beneficiary_withdrawal_count(
+            self: @ContractState, beneficiary: ContractAddress,
+        ) -> u256 {
+            self.beneficiary_withdrawal_count.read(beneficiary)
+        }
+
+        fn is_fee_active(self: @ContractState) -> bool {
+            let config = self.fee_config.read();
+            config.is_active
+        }
+
+        fn get_fee_percentage(self: @ContractState) -> u256 {
+            let config = self.fee_config.read();
+            config.fee_percentage
+        }
+
+        fn get_fee_recipient(self: @ContractState) -> ContractAddress {
+            let config = self.fee_config.read();
+            config.fee_recipient
+        }
+
+        fn toggle_fee_collection(ref self: ContractState, is_active: bool) {
+            self.assert_only_admin();
+
+            let mut config = self.fee_config.read();
+            config.is_active = is_active;
+            self.fee_config.write(config);
+
+            self
+                .emit(
+                    FeeConfigUpdated {
+                        old_fee_percentage: config.fee_percentage,
+                        new_fee_percentage: config.fee_percentage,
+                        old_fee_recipient: config.fee_recipient,
+                        new_fee_recipient: config.fee_recipient,
+                        updated_by: get_caller_address(),
+                        updated_at: get_block_timestamp(),
+                    },
+                );
+        }
+
+        fn update_fee_limits(ref self: ContractState, new_min_fee: u256, new_max_fee: u256) {
+            self.assert_only_admin();
+            assert(new_min_fee <= new_max_fee, ERR_INVALID_INPUT);
+
+            let mut config = self.fee_config.read();
+            config.min_fee = new_min_fee;
+            config.max_fee = new_max_fee;
+            self.fee_config.write(config);
+
+            self
+                .emit(
+                    FeeConfigUpdated {
+                        old_fee_percentage: config.fee_percentage,
+                        new_fee_percentage: config.fee_percentage,
+                        old_fee_recipient: config.fee_recipient,
+                        new_fee_recipient: config.fee_recipient,
+                        updated_by: get_caller_address(),
+                        updated_at: get_block_timestamp(),
+                    },
+                );
+        }
     }
 }

@@ -251,4 +251,26 @@ pub trait IInheritXCore<TContractState> {
     fn get_beneficiary_withdrawal_requests(
         self: @TContractState, beneficiary: ContractAddress, limit: u256,
     ) -> Array<u256>;
+
+    // ================ STATISTICS AND QUERY FUNCTIONS ================
+
+    fn get_total_fees_collected(self: @TContractState) -> u256;
+
+    fn get_plan_fees_collected(self: @TContractState, plan_id: u256) -> u256;
+
+    fn get_withdrawal_request_count(self: @TContractState) -> u256;
+
+    fn get_beneficiary_withdrawal_count(
+        self: @TContractState, beneficiary: ContractAddress,
+    ) -> u256;
+
+    fn is_fee_active(self: @TContractState) -> bool;
+
+    fn get_fee_percentage(self: @TContractState) -> u256;
+
+    fn get_fee_recipient(self: @TContractState) -> ContractAddress;
+
+    fn toggle_fee_collection(ref self: TContractState, is_active: bool);
+
+    fn update_fee_limits(ref self: TContractState, new_min_fee: u256, new_max_fee: u256);
 }

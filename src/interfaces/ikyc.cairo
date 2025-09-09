@@ -28,6 +28,14 @@ pub trait IInheritXKYC<TContractState> {
         name_hash: ByteArray,
     ) -> bool;
 
+    fn emit_beneficiary_identity_verified(
+        ref self: TContractState,
+        plan_id: u256,
+        beneficiary_address: ContractAddress,
+        verification_method: ByteArray,
+        verification_score: u8,
+    );
+
     // ================ ADMIN FUNCTIONS ================
 
     fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
