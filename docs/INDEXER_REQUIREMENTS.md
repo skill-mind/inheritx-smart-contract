@@ -3,6 +3,22 @@
 ## Overview
 The InheritX indexer serves as a critical bridge in the hybrid architecture, monitoring smart contract events, tracking wallet activity, and providing real-time data synchronization between on-chain and off-chain systems. Built in Rust for maximum performance and reliability, it handles both inheritance plan monitoring and wallet inactivity detection while maintaining data consistency across the entire platform.
 
+## Deployed Smart Contracts
+
+### InheritXPlans Contract
+- **Contract Address**: `0xfd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0`
+- **Class Hash**: `0x4c04d2008a504f2fc7f8dc3e4c20e52f529f48bd64cdae512c4084750c57833`
+- **Network**: Starknet Sepolia Testnet
+- **Deployed**: September 10, 2025
+- **Primary Events**: Plan lifecycle, beneficiary management, monthly disbursements, inactivity monitoring
+
+### InheritXOperations Contract
+- **Contract Address**: `0x313791f9b687cf29fd9cc9c395ce77854a6c8b6b267a2a34d6c4a5734a33050`
+- **Class Hash**: `0x72edb586b5228bcd5b60550fec62447d4e5d7b5e953906d4e4b6bc1e1b8bc14`
+- **Network**: Starknet Sepolia Testnet
+- **Deployed**: September 10, 2025
+- **Primary Events**: Asset management, fee collection, wallet security, swap operations
+
 ## Core Responsibilities
 
 ### 1. Smart Contract Event Monitoring
@@ -593,10 +609,119 @@ event BeneficiaryModified {
 // ================ BENEFICIARY VERIFICATION EVENTS ================ ⭐ NEW
 event BeneficiaryIdentityVerified {
     plan_id: u256,
-    beneficiary_address: felt252,
-    verification_result: bool,
+    beneficiary: ContractAddress,
     verified_at: u64,
-    verified_by: felt252,
+    verification_method: ByteArray,
+    verification_score: u8,
+}
+
+// ================ FEE MANAGEMENT EVENTS ================ ⭐ NEW
+event FeeCollected {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    fee_amount: u256,
+    fee_percentage: u256,
+    gross_amount: u256,
+    net_amount: u256,
+    fee_recipient: ContractAddress,
+    collected_at: u64,
+}
+
+event FeeConfigUpdated {
+    old_fee_percentage: u256,
+    new_fee_percentage: u256,
+    old_fee_recipient: ContractAddress,
+    new_fee_recipient: ContractAddress,
+    updated_by: ContractAddress,
+    updated_at: u64,
+}
+
+// ================ WITHDRAWAL REQUEST EVENTS ================ ⭐ NEW
+event WithdrawalRequestCreated {
+    request_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    asset_type: u8,
+    withdrawal_type: u8,
+    amount: u256,
+    nft_token_id: u256,
+    nft_contract: ContractAddress,
+    requested_at: u64,
+}
+
+event WithdrawalRequestApproved {
+    request_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    approved_by: ContractAddress,
+    approved_at: u64,
+    fees_deducted: u256,
+    net_amount: u256,
+}
+
+event WithdrawalRequestProcessed {
+    request_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    asset_type: u8,
+    amount: u256,
+    processed_at: u64,
+    transaction_hash: ByteArray,
+}
+
+event WithdrawalRequestRejected {
+    request_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    rejected_by: ContractAddress,
+    rejected_at: u64,
+    rejection_reason: ByteArray,
+}
+
+event WithdrawalRequestCancelled {
+    request_id: u256,
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    cancelled_by: ContractAddress,
+    cancelled_at: u64,
+    cancellation_reason: ByteArray,
+}
+
+// ================ ENHANCED KYC EVENTS ================ ⭐ NEW
+event KYCUploaded {
+    user_address: ContractAddress,
+    kyc_hash: ByteArray,
+    user_type: u8,
+    uploaded_at: u64,
+    documents_count: u8,
+    verification_score: u8,
+    fraud_risk: u8,
+}
+
+event KYCApproved {
+    user_address: ContractAddress,
+    approved_by: ContractAddress,
+    approved_at: u64,
+    approval_notes: ByteArray,
+    final_verification_score: u8,
+}
+
+event KYCRejected {
+    user_address: ContractAddress,
+    rejected_by: ContractAddress,
+    rejected_at: u64,
+    rejection_reason: ByteArray,
+    fraud_risk_score: u8,
+}
+
+// ================ ENHANCED CLAIM CODE EVENTS ================ ⭐ NEW
+event ClaimCodeRevoked {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    code_hash: ByteArray,
+    revoked_at: u64,
+    revoked_by: ContractAddress,
+    revocation_reason: ByteArray,
 }
 
 // ================ MONTHLY DISBURSEMENT EVENTS ================
@@ -657,12 +782,17 @@ event DisbursementBeneficiaryRemoved {
 ```
 
 #### Event Processing Pipeline
-1. **Event Detection**: Monitor blockchain for new events
+1. **Event Detection**: Monitor both deployed contracts for new events
 2. **Event Parsing**: Extract relevant data from event logs
 3. **Data Validation**: Verify event data integrity
 4. **Database Update**: Store processed events in database
 5. **Notification Trigger**: Alert backend of new events
 6. **State Synchronization**: Update application state
+
+#### Contract-Specific Event Monitoring
+- **InheritXPlans Events**: Plan creation, beneficiary management, monthly disbursements, inactivity monitoring
+- **InheritXOperations Events**: Asset management, fee collection, wallet security, swap operations
+- **Cross-Contract Events**: Events that span both contracts (e.g., plan execution triggering asset operations)
 
 ### 2. Hybrid Data Synchronization
 
@@ -1130,9 +1260,99 @@ CREATE TABLE kyc_data (
     approved_at BIGINT,
     approved_by VARCHAR(42),
     ipfs_hash VARCHAR(255),
+    documents_count INTEGER DEFAULT 1,
+    verification_score INTEGER DEFAULT 0,
+    fraud_risk INTEGER DEFAULT 0,
     INDEX idx_user_address (user_address),
     INDEX idx_status (status),
     INDEX idx_uploaded_at (uploaded_at)
+);
+
+-- Fee management table
+CREATE TABLE fee_configurations (
+    id SERIAL PRIMARY KEY,
+    fee_percentage NUMERIC(5,2) NOT NULL,
+    fee_recipient VARCHAR(42) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    min_fee NUMERIC(78,0) DEFAULT 0,
+    max_fee NUMERIC(78,0) DEFAULT 0,
+    updated_at BIGINT NOT NULL,
+    updated_by VARCHAR(42) NOT NULL,
+    INDEX idx_fee_recipient (fee_recipient),
+    INDEX idx_is_active (is_active)
+);
+
+-- Fee collection records table
+CREATE TABLE fee_collections (
+    id SERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    fee_amount NUMERIC(78,0) NOT NULL,
+    fee_percentage NUMERIC(5,2) NOT NULL,
+    gross_amount NUMERIC(78,0) NOT NULL,
+    net_amount NUMERIC(78,0) NOT NULL,
+    fee_recipient VARCHAR(42) NOT NULL,
+    collected_at BIGINT NOT NULL,
+    transaction_hash VARCHAR(66),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary (beneficiary),
+    INDEX idx_fee_recipient (fee_recipient),
+    INDEX idx_collected_at (collected_at)
+);
+
+-- Withdrawal requests table
+CREATE TABLE withdrawal_requests (
+    id SERIAL PRIMARY KEY,
+    request_id BIGINT NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    asset_type VARCHAR(20) NOT NULL,
+    withdrawal_type VARCHAR(20) NOT NULL,
+    amount NUMERIC(78,0) NOT NULL,
+    nft_token_id BIGINT DEFAULT 0,
+    nft_contract VARCHAR(42),
+    status VARCHAR(20) DEFAULT 'pending',
+    requested_at BIGINT NOT NULL,
+    approved_at BIGINT,
+    approved_by VARCHAR(42),
+    processed_at BIGINT,
+    processed_by VARCHAR(42),
+    rejected_at BIGINT,
+    rejected_by VARCHAR(42),
+    rejection_reason TEXT,
+    cancelled_at BIGINT,
+    cancelled_by VARCHAR(42),
+    cancellation_reason TEXT,
+    fees_deducted NUMERIC(78,0) DEFAULT 0,
+    net_amount NUMERIC(78,0) DEFAULT 0,
+    transaction_hash VARCHAR(66),
+    INDEX idx_request_id (request_id),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary (beneficiary),
+    INDEX idx_status (status),
+    INDEX idx_requested_at (requested_at)
+);
+
+-- Enhanced claim codes table with revocation support
+CREATE TABLE claim_codes (
+    id SERIAL PRIMARY KEY,
+    code_hash VARCHAR(255) NOT NULL,
+    plan_id BIGINT NOT NULL,
+    beneficiary VARCHAR(42) NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    generated_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    used_at BIGINT,
+    attempts INTEGER DEFAULT 0,
+    is_revoked BOOLEAN DEFAULT FALSE,
+    revoked_at BIGINT,
+    revoked_by VARCHAR(42),
+    revocation_reason TEXT,
+    INDEX idx_code_hash (code_hash),
+    INDEX idx_plan_id (plan_id),
+    INDEX idx_beneficiary (beneficiary),
+    INDEX idx_is_used (is_used),
+    INDEX idx_is_revoked (is_revoked)
 );
 ```
 
@@ -1178,6 +1398,38 @@ GET /api/indexer/plans/{planId}/beneficiaries
 GET /api/indexer/plans/{planId}/beneficiaries/{beneficiaryAddress}
 GET /api/indexer/plans/{planId}/beneficiaries/{beneficiaryAddress}/verifications ⭐ NEW
 GET /api/indexer/plans/{planId}/verifications ⭐ NEW
+
+// Fee management endpoints ⭐ NEW
+GET /api/indexer/fees/config
+GET /api/indexer/fees/collections
+GET /api/indexer/fees/collections/plan/{planId}
+GET /api/indexer/fees/collections/beneficiary/{beneficiaryAddress}
+GET /api/indexer/fees/analytics
+GET /api/indexer/fees/analytics/plan/{planId}
+
+// Withdrawal request endpoints ⭐ NEW
+GET /api/indexer/withdrawals/requests
+GET /api/indexer/withdrawals/requests/{requestId}
+GET /api/indexer/withdrawals/requests/plan/{planId}
+GET /api/indexer/withdrawals/requests/beneficiary/{beneficiaryAddress}
+GET /api/indexer/withdrawals/requests/status/{status}
+GET /api/indexer/withdrawals/analytics
+GET /api/indexer/withdrawals/analytics/plan/{planId}
+
+// Enhanced KYC endpoints ⭐ NEW
+GET /api/indexer/kyc/users/{userAddress}
+GET /api/indexer/kyc/users/{userAddress}/status
+GET /api/indexer/kyc/users/{userAddress}/verifications
+GET /api/indexer/kyc/status/{status}
+GET /api/indexer/kyc/analytics
+GET /api/indexer/kyc/verifications/plan/{planId}
+
+// Enhanced claim code endpoints ⭐ NEW
+GET /api/indexer/claim-codes/{codeHash}/status
+GET /api/indexer/claim-codes/plan/{planId}/revoked
+GET /api/indexer/claim-codes/beneficiary/{beneficiaryAddress}
+GET /api/indexer/claim-codes/revocation/history
+GET /api/indexer/claim-codes/analytics
 
 GET /api/indexer/monthly-disbursements/{planId}
 GET /api/indexer/monthly-disbursements/{planId}/executions
@@ -2262,31 +2514,63 @@ tokio-tungstenite = "0.20"
 - **Compliance tracking**: Ensure regulatory requirements are met
 - **Real-time alerts**: Notify of verification failures or security issues
 
-### 4. **Advanced Security Event Monitoring**
+### 4. **Fee Management System Integration** ⭐ NEW
+
+- **Fee collection monitoring**: Track all fee collection events
+- **Fee configuration tracking**: Monitor fee parameter changes
+- **Fee analytics**: Generate comprehensive fee reports and trends
+- **Real-time fee calculations**: Monitor fee calculations and limits
+- **Fee recipient management**: Track fee distribution and recipients
+
+### 5. **Withdrawal Request System Integration** ⭐ NEW
+
+- **Withdrawal request monitoring**: Track all withdrawal request events
+- **Request status tracking**: Monitor approval, processing, and completion
+- **Withdrawal analytics**: Generate withdrawal patterns and reports
+- **Fee deduction tracking**: Monitor fees deducted from withdrawals
+- **Request lifecycle management**: Track complete withdrawal workflow
+
+### 6. **Enhanced KYC System Integration** ⭐ NEW
+
+- **KYC event monitoring**: Track all KYC upload, approval, and rejection events
+- **Identity verification tracking**: Monitor verification attempts and results
+- **KYC analytics**: Generate compliance and verification reports
+- **Real-time status updates**: Track KYC status changes
+- **Fraud risk monitoring**: Track fraud risk scores and patterns
+
+### 7. **Enhanced Claim Code System Integration** ⭐ NEW
+
+- **Claim code revocation monitoring**: Track revocation events and reasons
+- **Enhanced security tracking**: Monitor security events and audits
+- **Revocation analytics**: Generate revocation patterns and reports
+- **Admin action tracking**: Monitor admin-controlled claim code operations
+- **Security event correlation**: Track security-related claim code events
+
+### 8. **Advanced Security Event Monitoring**
 - **Security settings tracking** with configuration changes
 - **Wallet security monitoring** with freeze/blacklist events
 - **Inactivity monitoring** with trigger detection and response
 - **Access control logging** with permission management
 
-### 5. **Enhanced Escrow and Swap Management**
+### 9. **Enhanced Escrow and Swap Management**
 - **Escrow lifecycle tracking** with lock/release events
 - **Swap request monitoring** with execution status
 - **DEX integration tracking** with performance metrics
 - **Claim code management** with generation and usage tracking
 
-### 6. **Comprehensive Activity Logging**
+### 10. **Comprehensive Activity Logging**
 - **Real-time activity tracking** for all operations
 - **Cross-system event correlation** for data consistency
 - **Performance analytics** for all new features
 - **Security event monitoring** with automated alerts
 
-### 7. **Enhanced Data Consistency Management**
+### 11. **Enhanced Data Consistency Management**
 - **On-chain to off-chain synchronization** for all new features
 - **Real-time data validation** with consistency checks
 - **Cross-system health monitoring** with alerting
 - **Automated recovery procedures** for data inconsistencies
 
-### 8. **Advanced Claim Code System**
+### 12. **Advanced Claim Code System**
 - **Zero-knowledge encrypted claim codes** with maximum security
 - **Comprehensive delivery workflow** with multiple delivery methods
 - **Real-time delivery tracking** with retry mechanisms

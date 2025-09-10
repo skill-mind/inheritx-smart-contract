@@ -8,6 +8,7 @@ pub const ERR_INVALID_INPUT: felt252 = 'Invalid input parameters';
 pub const ERR_PLAN_NOT_FOUND: felt252 = 'Inheritance plan not found';
 pub const ERR_PLAN_ALREADY_EXISTS: felt252 = 'Plan already exists';
 pub const ERR_PLAN_NOT_ACTIVE: felt252 = 'Plan is not active';
+pub const ERR_PLAN_ALREADY_ACTIVE: felt252 = 'Plan is already active';
 pub const ERR_PLAN_ALREADY_EXECUTED: felt252 = 'Plan already executed';
 pub const ERR_PLAN_ALREADY_CLAIMED: felt252 = 'Plan already claimed';
 pub const ERR_INVALID_TIMEFRAME: felt252 = 'Invalid timeframe';

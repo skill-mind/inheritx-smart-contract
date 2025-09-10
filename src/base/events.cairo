@@ -769,3 +769,36 @@ pub struct WithdrawalRequestCancelled {
     pub cancelled_at: u64,
     pub cancellation_reason: ByteArray,
 }
+
+// ================ ESCROW EVENTS (ADDITIONAL) ================
+
+/// @notice Emitted when assets are locked in escrow
+#[derive(Drop, starknet::Event)]
+pub struct AssetsLockedInEscrow {
+    pub escrow_id: u256,
+    pub plan_id: u256,
+    pub locked_at: u64,
+    pub fees: u256,
+    pub tax_liability: u256,
+}
+
+/// @notice Emitted when assets are released from escrow
+#[derive(Drop, starknet::Event)]
+pub struct AssetsReleasedFromEscrow {
+    pub escrow_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub released_at: u64,
+    pub release_reason: ByteArray,
+}
+
+// ================ EMERGENCY EVENTS (ADDITIONAL) ================
+
+/// @notice Emitted when emergency withdrawal is executed
+#[derive(Drop, starknet::Event)]
+pub struct EmergencyWithdraw {
+    pub token_address: ContractAddress,
+    pub amount: u256,
+    pub withdrawn_to: ContractAddress,
+    pub withdrawn_at: u64,
+}

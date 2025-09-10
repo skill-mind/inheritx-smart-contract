@@ -12,6 +12,8 @@ pub mod interfaces {
 }
 pub mod claim;
 pub mod core;
+pub mod core_operations;
+pub mod core_plans;
 
 pub mod inheritx;
 pub mod kyc;

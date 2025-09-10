@@ -1,12 +1,28 @@
 # Backend Implementation Guide for InheritX
 
-This document outlines the backend functions that should be implemented off-chain to complement the Cairo smart contract. These functions handle complex business logic, validation, and data processing that would be too expensive or complex to implement on-chain.
+This document outlines the backend functions that should be implemented off-chain to complement the Cairo smart contracts. These functions handle complex business logic, validation, and data processing that would be too expensive or complex to implement on-chain.
 
 ## Architecture Overview
 
-The InheritX system follows a hybrid architecture:
-- **On-chain (Cairo)**: Critical state management, asset transfers, and security enforcement
+The InheritX system follows a hybrid architecture with split smart contracts:
+- **On-chain (Cairo Contracts)**: 
+  - **InheritXPlans**: Plan management, beneficiary management, monthly disbursements, inactivity monitoring
+  - **InheritXOperations**: Asset management, fee collection, wallet security, swap operations
 - **Off-chain (Rust Backend)**: Complex validation, business logic, data processing, and user experience
+
+## Deployed Smart Contracts
+
+### InheritXPlans Contract
+- **Contract Address**: `0xfd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0`
+- **Class Hash**: `0x4c04d2008a504f2fc7f8dc3e4c20e52f529f48bd64cdae512c4084750c57833`
+- **Network**: Starknet Sepolia Testnet
+- **Deployed**: September 10, 2025
+
+### InheritXOperations Contract
+- **Contract Address**: `0x313791f9b687cf29fd9cc9c395ce77854a6c8b6b267a2a34d6c4a5734a33050`
+- **Class Hash**: `0x72edb586b5228bcd5b60550fec62447d4e5d7b5e953906d4e4b6bc1e1b8bc14`
+- **Network**: Starknet Sepolia Testnet
+- **Deployed**: September 10, 2025
 
 ## UI Design Flow Integration
 
@@ -858,7 +874,209 @@ pub async fn generate_analytics_report(
 - Comparative analysis and benchmarking
 - Custom report generation and scheduling
 
-### 6. Guardian and Multi-Signature Management
+### 6. Fee Management Service ⭐ NEW
+
+#### 6.1 Fee Configuration and Management
+```rust
+pub async fn update_fee_config(
+    new_fee_percentage: u256,
+    new_fee_recipient: ContractAddress,
+    user_context: UserContext,
+) -> Result<(), BackendError> {
+    // Validate fee percentage (0-100%)
+    if new_fee_percentage > 100 {
+        return Err(BackendError::InvalidFeePercentage);
+    }
+    
+    // Update fee configuration on-chain
+    self.smart_contract
+        .update_fee_config(new_fee_percentage, new_fee_recipient)
+        .await?;
+    
+    // Emit fee config updated event
+    self.event_service.emit_fee_config_updated(
+        new_fee_percentage,
+        new_fee_recipient,
+        user_context.user_address,
+    ).await?;
+    
+    Ok(())
+}
+```
+
+#### 6.2 Fee Collection and Processing
+```rust
+pub async fn collect_fee(
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    gross_amount: u256,
+) -> Result<u256, BackendError> {
+    // Get current fee configuration
+    let fee_config = self.smart_contract.get_fee_config().await?;
+    
+    // Calculate fee amount with min/max limits
+    let fee_amount = self.calculate_fee_with_limits(
+        gross_amount, 
+        fee_config.fee_percentage,
+        fee_config.min_fee,
+        fee_config.max_fee,
+    ).await?;
+    
+    // Calculate net amount
+    let net_amount = gross_amount - fee_amount;
+    
+    // Emit fee collected event
+    self.event_service.emit_fee_collected(
+        plan_id,
+        beneficiary,
+        fee_amount,
+        fee_config.fee_percentage,
+        gross_amount,
+        net_amount,
+        fee_config.fee_recipient,
+    ).await?;
+    
+    Ok(net_amount)
+}
+```
+
+### 7. Withdrawal Request Management Service ⭐ NEW
+
+#### 7.1 Withdrawal Request Creation
+```rust
+pub async fn create_withdrawal_request(
+    plan_id: u256,
+    asset_type: AssetType,
+    withdrawal_type: WithdrawalType,
+    amount: u256,
+    nft_token_id: Option<u256>,
+    nft_contract: Option<ContractAddress>,
+    user_context: UserContext,
+) -> Result<u256, BackendError> {
+    // Validate withdrawal request parameters
+    self.validate_withdrawal_request(
+        plan_id,
+        asset_type,
+        withdrawal_type,
+        amount,
+        nft_token_id,
+        nft_contract,
+    ).await?;
+    
+    // Create withdrawal request on-chain
+    let request_id = self.smart_contract
+        .create_withdrawal_request(
+            plan_id,
+            asset_type as u8,
+            withdrawal_type as u8,
+            amount,
+            nft_token_id.unwrap_or(0),
+            nft_contract.unwrap_or(ZERO_ADDRESS),
+        )
+        .await?;
+    
+    // Emit withdrawal request created event
+    self.event_service.emit_withdrawal_request_created(
+        request_id,
+        plan_id,
+        user_context.user_address,
+        asset_type,
+        withdrawal_type,
+        amount,
+        nft_token_id,
+        nft_contract,
+    ).await?;
+    
+    Ok(request_id)
+}
+```
+
+### 8. Enhanced KYC Management Service ⭐ NEW
+
+#### 8.1 KYC Data Processing with Event Emission
+```rust
+pub async fn process_kyc_upload(
+    user_address: ContractAddress,
+    kyc_hash: String,
+    user_type: UserType,
+    documents_count: u8,
+    verification_score: u8,
+    fraud_risk: u8,
+) -> Result<(), BackendError> {
+    // Upload KYC data to smart contract
+    self.kyc_contract
+        .upload_kyc(kyc_hash, user_type as u8)
+        .await?;
+    
+    // Emit KYC uploaded event
+    self.event_service.emit_kyc_uploaded(
+        user_address,
+        kyc_hash,
+        user_type,
+        documents_count,
+        verification_score,
+        fraud_risk,
+    ).await?;
+    
+    Ok(())
+}
+```
+
+#### 8.2 Beneficiary Identity Verification
+```rust
+pub async fn verify_beneficiary_identity(
+    plan_id: u256,
+    beneficiary_address: ContractAddress,
+    email_hash: String,
+    name_hash: String,
+) -> Result<bool, BackendError> {
+    // Verify identity on KYC contract
+    let verification_result = self.kyc_contract
+        .verify_beneficiary_identity(
+            plan_id,
+            beneficiary_address,
+            email_hash,
+            name_hash,
+        )
+        .await?;
+    
+    // Emit verification event
+    self.event_service.emit_beneficiary_identity_verified(
+        plan_id,
+        beneficiary_address,
+        verification_result,
+    ).await?;
+    
+    Ok(verification_result)
+}
+```
+
+### 9. Enhanced Claim Code Management Service ⭐ NEW
+
+#### 9.1 Claim Code Revocation
+```rust
+pub async fn revoke_claim_code(
+    plan_id: u256,
+    reason: String,
+    admin_context: UserContext,
+) -> Result<(), BackendError> {
+    // Revoke claim code on smart contract
+    self.claim_contract
+        .revoke_claim_code(plan_id, reason)
+        .await?;
+    
+    // Emit claim code revoked event
+    self.event_service.emit_claim_code_revoked(
+        plan_id,
+        reason,
+        admin_context.user_address,
+    ).await?;
+    
+    Ok(())
+}
+```
+
+### 10. Guardian and Multi-Signature Management
 
 #### 6.1 Guardian Permission Management
 ```rust
@@ -1544,13 +1762,58 @@ This enhanced backend implementation provides a comprehensive, scalable foundati
 - **Security event logging** with alert systems
 - **User behavior analysis** with pattern recognition
 
+### 7. **Fee Management System** ⭐ NEW
+- **2% fee collection** on all inheritance features
+- **Configurable fee parameters** with minimum and maximum limits
+- **Fee recipient management** with admin controls
+- **Real-time fee calculation** and collection
+- **Fee analytics** and reporting
+- **Fee collection events** for audit trails
+
+### 8. **Withdrawal Request System** ⭐ NEW
+- **Beneficiary withdrawal requests** for assets and NFTs
+- **Multiple withdrawal types** (full, percentage, fixed amount, NFT)
+- **Request approval workflow** with admin controls
+- **Withdrawal processing** with fee deduction
+- **Request status tracking** and monitoring
+- **Withdrawal analytics** and reporting
+
+### 9. **Enhanced KYC System** ⭐ NEW
+- **Proper event emissions** for all KYC operations
+- **Identity verification tracking** with detailed status
+- **KYC data management** with secure storage
+- **Verification workflow** with approval/rejection
+- **Compliance monitoring** and reporting
+- **Real-time KYC status updates**
+
+### 10. **Enhanced Claim Code System** ⭐ NEW
+- **Claim code revocation** functionality
+- **Admin-controlled invalidation** with reason tracking
+- **Enhanced security** with revocation events
+- **Audit trail** for all claim code operations
+- **Status monitoring** and tracking
+
 This implementation ensures that the InheritX platform provides a secure, compliant, and user-friendly experience while maintaining the highest standards of security and regulatory compliance. The modular architecture allows for easy scaling and feature additions as the platform evolves.
 
 ## Smart Contract Integration
 
-### New Smart Contract Functions
+### Deployed Contract Integration
 
-The backend now integrates with the following new smart contract functions for enhanced inheritance plan management:
+The backend integrates with the deployed split smart contracts:
+
+#### InheritXPlans Contract Integration
+- **Contract Address**: `0xfd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0`
+- **Primary Functions**: Plan creation, beneficiary management, monthly disbursements, inactivity monitoring
+- **Key Events**: Plan lifecycle events, beneficiary events, disbursement events, inactivity events
+
+#### InheritXOperations Contract Integration
+- **Contract Address**: `0x313791f9b687cf29fd9cc9c395ce77854a6c8b6b267a2a34d6c4a5734a33050`
+- **Primary Functions**: Asset management, fee collection, wallet security, swap operations
+- **Key Events**: Asset events, fee events, security events, swap events
+
+### Smart Contract Functions
+
+The backend now integrates with the following smart contract functions for enhanced inheritance plan management:
 
 #### 1. **Percentage-Based Plan Creation**
 ```rust
