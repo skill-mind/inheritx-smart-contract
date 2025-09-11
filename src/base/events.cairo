@@ -583,7 +583,49 @@ pub struct BeneficiaryModified {
     pub modified_by: ContractAddress,
 }
 
-// Monthly Disbursement Events
+// Unified Distribution Events
+#[derive(Drop, starknet::Event)]
+pub struct DistributionPlanCreated {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub distribution_method: u8,
+    pub total_amount: u256,
+    pub period_amount: u256,
+    pub start_date: u64,
+    pub end_date: u64,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionExecuted {
+    pub plan_id: u256,
+    pub record_id: u256,
+    pub period: u64,
+    pub amount: u256,
+    pub executed_at: u64,
+    pub beneficiaries_count: u8,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionPaused {
+    pub plan_id: u256,
+    pub paused_at: u64,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionResumed {
+    pub plan_id: u256,
+    pub resumed_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionCancelled {
+    pub plan_id: u256,
+    pub cancelled_at: u64,
+    pub reason: ByteArray,
+}
+
 #[derive(Drop, starknet::Event)]
 pub struct MonthlyDisbursementPlanCreated {
     pub plan_id: u256,

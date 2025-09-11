@@ -4,25 +4,80 @@ This document outlines the backend functions that should be implemented off-chai
 
 ## Architecture Overview
 
-The InheritX system follows a hybrid architecture with split smart contracts:
+The InheritX system follows a hybrid architecture with split smart contracts for optimal gas efficiency and modularity:
 - **On-chain (Cairo Contracts)**: 
   - **InheritXPlans**: Plan management, beneficiary management, monthly disbursements, inactivity monitoring
-  - **InheritXOperations**: Asset management, fee collection, wallet security, swap operations
+  - **InheritXOperations**: Asset management, fee collection, wallet security, swap operations, DEX integration
+  - **InheritXKYC**: KYC verification, identity management, compliance tracking
+  - **InheritXClaim**: Claim code generation, beneficiary verification, asset distribution
 - **Off-chain (Rust Backend)**: Complex validation, business logic, data processing, and user experience
 
 ## Deployed Smart Contracts
 
 ### InheritXPlans Contract
-- **Contract Address**: `0xfd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0`
-- **Class Hash**: `0x4c04d2008a504f2fc7f8dc3e4c20e52f529f48bd64cdae512c4084750c57833`
-- **Network**: Starknet Sepolia Testnet
+- **Contract Address**: `0x1d2ca88de32c378336a7d9b6da9246eb5dac9816992eef359c76c0a80c84c42`
+- **Class Hash**: `0x2f85030a3cb1674bd3ddaa832a6bae0c40f1746ed112159a7aadcaea3f9e6a1`
+- **Network**: Starknet Testnet
 - **Deployed**: September 10, 2025
+- **Primary Functions**: Plan lifecycle management, beneficiary management, monthly disbursements, inactivity monitoring
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Token Addresses**:
+  - STRK: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+  - USDT: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123`
+  - USDC: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345`
 
 ### InheritXOperations Contract
-- **Contract Address**: `0x313791f9b687cf29fd9cc9c395ce77854a6c8b6b267a2a34d6c4a5734a33050`
-- **Class Hash**: `0x72edb586b5228bcd5b60550fec62447d4e5d7b5e953906d4e4b6bc1e1b8bc14`
-- **Network**: Starknet Sepolia Testnet
+- **Contract Address**: `0x69374486a8784ab6a43faa70840e3450399a919e10131877de7c4b08ff858d0`
+- **Class Hash**: `0x202d9760cadfccd2d251ca01035f5b3b5d565b0d0925e6f39b05bb83ecba3e5`
+- **Network**: Starknet Testnet
 - **Deployed**: September 10, 2025
+- **Primary Functions**: Asset management, fee collection, wallet security, swap operations, DEX integration
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **DEX Router**: `0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (placeholder)
+- **Emergency Withdraw Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Core Plans Contract**: `0x00fd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0` (old address)
+- **Token Addresses**:
+  - STRK: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+  - USDT: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123`
+  - USDC: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345`
+
+### InheritXKYC Contract
+- **Contract Address**: `0x68ab991aa26ef349f04f93f6776cde99374796b8052dca07b1d841ce401e44b`
+- **Class Hash**: `0x12c88f67da11301f641b737514fc6240870dbfe21bcae907bdeb17c4d51b6dd`
+- **Network**: Starknet Testnet
+- **Deployed**: September 9, 2025
+- **Primary Functions**: KYC verification, identity management, compliance tracking, fraud detection
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+### InheritXClaim Contract
+- **Contract Address**: `0x2f6f1be0648d262f0c41c07966d9c59a9249d0af3e2013c9d621860dc27d9c5`
+- **Class Hash**: `0x22a674d26a7a0821148b29b21b1e1d10db89bff78f7b8cd145cf519ec60b816`
+- **Network**: Starknet Testnet
+- **Deployed**: September 9, 2025
+- **Primary Functions**: Claim code generation, beneficiary verification, asset distribution, claim tracking
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+## Configuration Details
+
+### Admin Configuration
+- **Primary Admin**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Deployment Account**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Emergency Withdraw Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+### Token Configuration
+- **STRK Token**: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+- **USDT Token**: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123` (placeholder)
+- **USDC Token**: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345` (placeholder)
+
+### DEX Configuration
+- **DEX Router**: `0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (placeholder)
+- **Router Interface**: `IDEXRouter` (custom interface for swap operations)
+- **Supported Swap Types**: Token-to-token, direct swaps, swap requests
+
+### Network Configuration
+- **Network**: Starknet Testnet
+- **RPC URL**: `https://starknet-testnet.public.blastapi.io/rpc/v0_8`
+- **Chain ID**: `0x534e5f474f45524c49` (SN_GOERLI)
 
 ## UI Design Flow Integration
 
@@ -672,7 +727,31 @@ pub async fn handle_inactivity_trigger(
 
 ### 8. Enhanced Swap and DEX Integration Service
 
-#### 8.1 Swap Request Management
+#### 8.1 Direct Token Swapping
+```rust
+pub async fn swap_tokens(
+    from_token: String,
+    to_token: String,
+    amount: u256,
+    min_amount_out: u256,
+    user_context: UserContext,
+) -> Result<u256, BackendError> {
+    // Validate swap parameters
+    // Check token compatibility
+    // Calculate optimal slippage
+    // Execute direct swap on-chain
+    // Return actual amount received
+}
+```
+
+**Responsibilities:**
+- Direct token-to-token swapping
+- Real-time DEX integration
+- Slippage protection and validation
+- Gas optimization
+- Swap execution monitoring
+
+#### 8.2 Swap Request Management
 ```rust
 pub async fn create_swap_request(
     plan_id: u256,
@@ -697,14 +776,14 @@ pub async fn create_swap_request(
 - On-chain swap request management
 - DEX integration preparation
 
-#### 8.2 Swap Execution and Monitoring
+#### 8.3 Swap Execution and Monitoring
 ```rust
 pub async fn execute_swap(
     swap_id: u256,
     user_context: UserContext,
 ) -> Result<SwapResult, BackendError> {
     // Verify swap request status
-    // Execute swap through DEX
+    // Execute swap through DEX router
     // Monitor execution progress
     // Update swap status
     // Log swap execution
@@ -712,13 +791,35 @@ pub async fn execute_swap(
 ```
 
 **Responsibilities:**
-- Swap execution through DEX integration
+- Swap execution through DEX router integration
 - Real-time execution monitoring
 - Gas optimization and cost management
 - Execution status tracking
 - Error handling and recovery
 
-#### 8.3 DEX Integration and Optimization
+#### 8.4 DEX Router Integration
+```rust
+pub async fn integrate_dex_router(
+    dex_router_address: String,
+    supported_tokens: Vec<String>,
+    user_context: UserContext,
+) -> Result<(), BackendError> {
+    // Validate DEX router contract
+    // Test router functionality
+    // Update supported tokens list
+    // Configure routing parameters
+    // Log integration status
+}
+```
+
+**Responsibilities:**
+- DEX router contract integration
+- Router functionality validation
+- Supported token management
+- Routing parameter configuration
+- Integration status monitoring
+
+#### 8.5 DEX Optimization and Routing
 ```rust
 pub async fn optimize_dex_routing(
     from_token: String,

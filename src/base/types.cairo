@@ -428,6 +428,7 @@ pub struct BasicPlanInfo {
     pub owner_email_hash: ByteArray,
     pub initial_beneficiary: ContractAddress,
     pub initial_beneficiary_email: ByteArray,
+    pub claim_code_hash: ByteArray,
     pub created_at: u64,
     pub status: PlanCreationStatus,
 }
@@ -751,4 +752,49 @@ pub enum SpecialConditionType {
     EmploymentStatus,
     HealthCondition,
     Custom,
+}
+
+// ================ UNIFIED DISTRIBUTION SYSTEM ================
+
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum DistributionMethod {
+    LumpSum,
+    Quarterly,
+    Yearly,
+    Monthly,
+}
+
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionPlan {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub total_amount: u256,
+    pub distribution_method: DistributionMethod,
+    pub period_amount: u256,
+    pub start_date: u64,
+    pub end_date: u64,
+    pub total_periods: u8,
+    pub completed_periods: u8,
+    pub next_disbursement_date: u64,
+    pub is_active: bool,
+    pub beneficiaries_count: u8,
+    pub disbursement_status: DisbursementStatus,
+    pub created_at: u64,
+    pub last_activity: u64,
+    pub paused_at: u64,
+    pub resumed_at: u64,
+}
+
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionRecord {
+    pub record_id: u256,
+    pub plan_id: u256,
+    pub period: u8,
+    pub amount: u256,
+    pub status: DisbursementStatus,
+    pub scheduled_date: u64,
+    pub executed_date: u64,
+    pub beneficiaries_count: u8,
+    pub transaction_hash: ByteArray,
 }

@@ -2,7 +2,7 @@ use core::byte_array::ByteArray;
 use starknet::{ClassHash, ContractAddress};
 use crate::base::types::{
     AssetAllocation, Beneficiary, BeneficiaryData, ClaimCode, DisbursementBeneficiary,
-    EscrowAccount, InactivityMonitor, InheritancePlan, MonthlyDisbursementPlan, SecuritySettings,
+    DistributionPlan, EscrowAccount, InactivityMonitor, InheritancePlan, SecuritySettings,
 };
 
 #[starknet::interface]
@@ -432,11 +432,9 @@ pub trait IInheritX<TContractState> {
     // Pause monthly disbursement plan
     fn pause_monthly_disbursement(ref self: TContractState, plan_id: u256, reason: ByteArray);
 
-    // Resume monthly disbursement plan
-    fn resume_monthly_disbursement(ref self: TContractState, plan_id: u256);
+    // Resume distribution plan
+    fn resume_distribution(ref self: TContractState, plan_id: u256);
 
-    // Get monthly disbursement plan status
-    fn get_monthly_disbursement_status(
-        self: @TContractState, plan_id: u256,
-    ) -> MonthlyDisbursementPlan;
+    // Get distribution plan status
+    fn get_distribution_status(self: @TContractState, plan_id: u256) -> DistributionPlan;
 }

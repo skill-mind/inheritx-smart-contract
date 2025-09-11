@@ -164,9 +164,7 @@ pub trait IInheritXCore<TContractState> {
 
     fn resume_monthly_disbursement(ref self: TContractState, plan_id: u256);
 
-    fn get_monthly_disbursement_status(
-        self: @TContractState, plan_id: u256,
-    ) -> MonthlyDisbursementPlan;
+    fn get_distribution_status(self: @TContractState, plan_id: u256) -> DistributionPlan;
 
     // ================ PLAN CREATION FLOW FUNCTIONS ================
 

@@ -6,18 +6,69 @@ The InheritX indexer serves as a critical bridge in the hybrid architecture, mon
 ## Deployed Smart Contracts
 
 ### InheritXPlans Contract
-- **Contract Address**: `0xfd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0`
-- **Class Hash**: `0x4c04d2008a504f2fc7f8dc3e4c20e52f529f48bd64cdae512c4084750c57833`
-- **Network**: Starknet Sepolia Testnet
+- **Contract Address**: `0x1d2ca88de32c378336a7d9b6da9246eb5dac9816992eef359c76c0a80c84c42`
+- **Class Hash**: `0x2f85030a3cb1674bd3ddaa832a6bae0c40f1746ed112159a7aadcaea3f9e6a1`
+- **Network**: Starknet Testnet
 - **Deployed**: September 10, 2025
 - **Primary Events**: Plan lifecycle, beneficiary management, monthly disbursements, inactivity monitoring
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Token Addresses**:
+  - STRK: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+  - USDT: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123`
+  - USDC: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345`
 
 ### InheritXOperations Contract
-- **Contract Address**: `0x313791f9b687cf29fd9cc9c395ce77854a6c8b6b267a2a34d6c4a5734a33050`
-- **Class Hash**: `0x72edb586b5228bcd5b60550fec62447d4e5d7b5e953906d4e4b6bc1e1b8bc14`
-- **Network**: Starknet Sepolia Testnet
+- **Contract Address**: `0x69374486a8784ab6a43faa70840e3450399a919e10131877de7c4b08ff858d0`
+- **Class Hash**: `0x202d9760cadfccd2d251ca01035f5b3b5d565b0d0925e6f39b05bb83ecba3e5`
+- **Network**: Starknet Testnet
 - **Deployed**: September 10, 2025
-- **Primary Events**: Asset management, fee collection, wallet security, swap operations
+- **Primary Events**: Asset management, fee collection, wallet security, swap operations, DEX integration
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **DEX Router**: `0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (placeholder)
+- **Emergency Withdraw Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Core Plans Contract**: `0x00fd052d74b399aa085c01bd648af009d002bcaa3a29bcde1683f4720257d1e0` (old address)
+- **Token Addresses**:
+  - STRK: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+  - USDT: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123`
+  - USDC: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345`
+
+### InheritXKYC Contract
+- **Contract Address**: `0x68ab991aa26ef349f04f93f6776cde99374796b8052dca07b1d841ce401e44b`
+- **Class Hash**: `0x12c88f67da11301f641b737514fc6240870dbfe21bcae907bdeb17c4d51b6dd`
+- **Network**: Starknet Testnet
+- **Deployed**: September 9, 2025
+- **Primary Events**: KYC verification, identity management, compliance tracking, fraud detection
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+### InheritXClaim Contract
+- **Contract Address**: `0x2f6f1be0648d262f0c41c07966d9c59a9249d0af3e2013c9d621860dc27d9c5`
+- **Class Hash**: `0x22a674d26a7a0821148b29b21b1e1d10db89bff78f7b8cd145cf519ec60b816`
+- **Network**: Starknet Testnet
+- **Deployed**: September 9, 2025
+- **Primary Events**: Claim code generation, beneficiary verification, asset distribution, claim tracking
+- **Admin Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+## Configuration Details
+
+### Admin Configuration
+- **Primary Admin**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Deployment Account**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+- **Emergency Withdraw Address**: `0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7`
+
+### Token Configuration
+- **STRK Token**: `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d`
+- **USDT Token**: `0x056789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123` (placeholder)
+- **USDC Token**: `0x0789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345` (placeholder)
+
+### DEX Configuration
+- **DEX Router**: `0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef` (placeholder)
+- **Router Interface**: `IDEXRouter` (custom interface for swap operations)
+- **Supported Swap Types**: Token-to-token, direct swaps, swap requests
+
+### Network Configuration
+- **Network**: Starknet Testnet
+- **RPC URL**: `https://starknet-testnet.public.blastapi.io/rpc/v0_8`
+- **Chain ID**: `0x534e5f474f45524c49` (SN_GOERLI)
 
 ## Core Responsibilities
 
@@ -380,6 +431,44 @@ event SwapExpired {
     swap_id: u256,
     expired_at: u64,
     expiry_reason: ByteArray
+}
+
+// ================ DEX INTEGRATION EVENTS ================
+event DEXRouterConfigured {
+    router_address: ContractAddress,
+    configured_at: u64,
+    configured_by: ContractAddress,
+    supported_tokens: Array<ContractAddress>
+}
+
+event DirectSwapExecuted {
+    from_token: ContractAddress,
+    to_token: ContractAddress,
+    amount_in: u256,
+    amount_out: u256,
+    executed_at: u64,
+    executed_by: ContractAddress,
+    dex_router: ContractAddress
+}
+
+event DEXRoutingOptimized {
+    from_token: ContractAddress,
+    to_token: ContractAddress,
+    amount: u256,
+    optimal_route: ByteArray,
+    estimated_gas: u256,
+    optimized_at: u64
+}
+
+event FeeCollected {
+    plan_id: u256,
+    beneficiary: ContractAddress,
+    fee_amount: u256,
+    fee_percentage: u256,
+    gross_amount: u256,
+    net_amount: u256,
+    fee_recipient: ContractAddress,
+    collected_at: u64
 }
 
 // ================ TIME TRIGGER EVENTS ================
@@ -791,8 +880,32 @@ event DisbursementBeneficiaryRemoved {
 
 #### Contract-Specific Event Monitoring
 - **InheritXPlans Events**: Plan creation, beneficiary management, monthly disbursements, inactivity monitoring
-- **InheritXOperations Events**: Asset management, fee collection, wallet security, swap operations
-- **Cross-Contract Events**: Events that span both contracts (e.g., plan execution triggering asset operations)
+- **InheritXOperations Events**: Asset management, fee collection, wallet security, swap operations, DEX integration
+- **InheritXKYC Events**: KYC verification, identity management, compliance tracking, fraud detection
+- **InheritXClaim Events**: Claim code generation, beneficiary verification, asset distribution, claim tracking
+- **Cross-Contract Events**: Events that span multiple contracts (e.g., plan execution triggering asset operations)
+
+#### Split Contract Architecture Monitoring
+The indexer must monitor all four deployed contracts simultaneously to maintain data consistency:
+
+**Primary Contract Monitoring:**
+- **InheritXPlans** (`0x1d2ca88de32c378336a7d9b6da9246eb5dac9816992eef359c76c0a80c84c42`): Core plan management
+- **InheritXOperations** (`0x69374486a8784ab6a43faa70840e3450399a919e10131877de7c4b08ff858d0`): Asset and swap operations
+- **InheritXKYC** (`0x68ab991aa26ef349f04f93f6776cde99374796b8052dca07b1d841ce401e44b`): Identity verification
+- **InheritXClaim** (`0x2f6f1be0648d262f0c41c07966d9c59a9249d0af3e2013c9d621860dc27d9c5`): Claim processing
+
+**Event Correlation Requirements:**
+- Track events across all contracts for complete plan lifecycle
+- Maintain referential integrity between contract states
+- Handle cross-contract dependencies and state updates
+- Monitor DEX integration events for swap operations
+- Track KYC status changes affecting plan eligibility
+
+**DEX Integration Monitoring:**
+- Monitor `DirectSwapExecuted` events for real-time swap tracking
+- Track `DEXRouterConfigured` events for router updates
+- Process `FeeCollected` events for fee analytics
+- Handle `DEXRoutingOptimized` events for performance metrics
 
 ### 2. Hybrid Data Synchronization
 

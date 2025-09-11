@@ -114,8 +114,8 @@ pub mod InheritXCore {
         plan_creation_steps: Map<u256, PlanCreationStatus>, // plan_id -> creation status
         pending_plans: Map<u256, bool>, // plan_id -> is_pending
         // Monthly disbursement storage
-        monthly_disbursement_plans: Map<u256, MonthlyDisbursementPlan>, // plan_id -> monthly plan
-        monthly_disbursements: Map<u256, MonthlyDisbursement>, // disbursement_id -> disbursement
+        distribution_plans: Map<u256, DistributionPlan>, // plan_id -> distribution plan
+        distribution_records: Map<u256, DistributionRecord>, // record_id -> distribution record
         disbursement_beneficiaries: Map<
             (u256, u256), DisbursementBeneficiary,
         >, // (plan_id, beneficiary_index) -> beneficiary
@@ -162,7 +162,7 @@ pub mod InheritXCore {
         PlanStatusUpdated: PlanStatusUpdated,
         BeneficiaryModified: BeneficiaryModified,
         // Monthly disbursement events
-        MonthlyDisbursementPlanCreated: MonthlyDisbursementPlanCreated,
+        DistributionPlanCreated: DistributionPlanCreated,
         MonthlyDisbursementExecuted: MonthlyDisbursementExecuted,
         MonthlyDisbursementPaused: MonthlyDisbursementPaused,
         MonthlyDisbursementResumed: MonthlyDisbursementResumed,
@@ -1288,25 +1288,26 @@ pub mod InheritXCore {
         ) { // Stub implementation
         }
 
-        fn get_monthly_disbursement_status(
-            self: @ContractState, plan_id: u256,
-        ) -> MonthlyDisbursementPlan {
+        fn get_distribution_status(self: @ContractState, plan_id: u256) -> DistributionPlan {
             // Stub implementation
-            MonthlyDisbursementPlan {
+            DistributionPlan {
                 plan_id: 0,
                 owner: ZERO_ADDRESS,
                 total_amount: 0,
-                monthly_amount: 0,
-                start_month: 0,
-                end_month: 0,
-                total_months: 0,
-                completed_months: 0,
+                distribution_method: DistributionMethod::LumpSum,
+                period_amount: 0,
+                start_date: 0,
+                end_date: 0,
+                total_periods: 0,
+                completed_periods: 0,
                 next_disbursement_date: 0,
                 is_active: false,
                 beneficiaries_count: 0,
                 disbursement_status: DisbursementStatus::Pending,
                 created_at: 0,
                 last_activity: 0,
+                paused_at: 0,
+                resumed_at: 0,
             }
         }
 
