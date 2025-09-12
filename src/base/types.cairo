@@ -794,3 +794,14 @@ pub struct DistributionRecord {
     pub beneficiaries_count: u8,
     pub transaction_hash: ByteArray,
 }
+
+// Comprehensive plan details response
+#[derive(Serde, Drop, Clone, PartialEq)]
+pub struct PlanDetails {
+    pub plan: InheritancePlan,
+    pub plan_name: ByteArray,
+    pub plan_description: ByteArray,
+    pub beneficiaries: Array<Beneficiary>,
+    pub distribution_plan: DistributionPlan,
+    pub escrow_account: EscrowAccount,
+}

@@ -50,7 +50,7 @@ pub trait IInheritXPlans<TContractState> {
 
     fn get_plan_count(self: @TContractState) -> u256;
 
-    fn get_inheritance_plan(self: @TContractState, plan_id: u256) -> InheritancePlan;
+    fn get_inheritance_plan(self: @TContractState, plan_id: u256) -> PlanDetails;
 
     fn get_escrow_details(self: @TContractState, plan_id: u256) -> EscrowAccount;
 
@@ -59,6 +59,11 @@ pub trait IInheritXPlans<TContractState> {
     ) -> InactivityMonitor;
 
     fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
+    fn get_plan_name(self: @TContractState, plan_id: u256) -> ByteArray;
+    fn get_plan_description(self: @TContractState, plan_id: u256) -> ByteArray;
+    fn get_plan_summary(
+        self: @TContractState, plan_id: u256,
+    ) -> (ByteArray, ByteArray, u256, AssetType, u64);
 
     // ================ HELPER FUNCTIONS ================
 
