@@ -55,9 +55,8 @@ pub trait IInheritXCore<TContractState> {
         ref self: TContractState,
         plan_id: u256,
         beneficiary: ContractAddress,
-        percentage: u8,
-        email_hash: ByteArray,
-        age: u8,
+        name: ByteArray,
+        email: ByteArray,
         relationship: ByteArray,
     );
 

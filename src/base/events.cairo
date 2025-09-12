@@ -20,6 +20,21 @@ pub struct InheritancePlanCreated {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct PlanCreated {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub plan_name: ByteArray,
+    pub plan_description: ByteArray,
+    pub beneficiary_name: ByteArray,
+    pub beneficiary_relationship: ByteArray,
+    pub beneficiary_email: ByteArray,
+    pub asset_type: u8,
+    pub asset_amount: u256,
+    pub distribution_method: u8,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct InheritancePlanUpdated {
     pub plan_id: u256,
     pub updated_at: u64,

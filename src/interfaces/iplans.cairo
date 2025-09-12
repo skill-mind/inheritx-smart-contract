@@ -8,43 +8,29 @@ pub trait IInheritXPlans<TContractState> {
 
     fn create_inheritance_plan(
         ref self: TContractState,
-        beneficiaries: Array<ContractAddress>,
+        // Step 1: Plan Creation Name & Description
+        plan_name: ByteArray,
+        plan_description: ByteArray,
+        // Step 2: Add Beneficiary (name, relationship, email)
+        beneficiary_name: ByteArray,
+        beneficiary_relationship: ByteArray,
+        beneficiary_email: ByteArray,
+        beneficiary_address: ContractAddress,
+        // Step 3: Asset Allocation
         asset_type: u8,
         asset_amount: u256,
-        nft_token_id: u256,
-        nft_contract: ContractAddress,
-        timeframe: u64,
-        guardian: ContractAddress,
-        encrypted_details: ByteArray,
-        security_level: u8,
-        auto_execute: bool,
-        emergency_contacts: Array<ContractAddress>,
-        claim_codes: Array<ByteArray>,
+        // Step 4: Rules for Plan Creation (distribution method)
+        distribution_method: u8, // 0: Lump Sum, 1: Quarterly, 2: Yearly, 3: Monthly
+        claim_code: ByteArray // Single 6-digit claim code
     ) -> u256;
 
-    fn create_inheritance_plan_with_percentages(
-        ref self: TContractState,
-        beneficiary_data: Array<BeneficiaryData>,
-        asset_type: u8,
-        asset_amount: u256,
-        nft_token_id: u256,
-        nft_contract: ContractAddress,
-        timeframe: u64,
-        guardian: ContractAddress,
-        encrypted_details: ByteArray,
-        security_level: u8,
-        auto_execute: bool,
-        emergency_contacts: Array<ContractAddress>,
-        claim_codes: Array<ByteArray>,
-    ) -> u256;
 
     fn add_beneficiary_to_plan(
         ref self: TContractState,
         plan_id: u256,
         beneficiary: ContractAddress,
-        percentage: u8,
-        email_hash: ByteArray,
-        age: u8,
+        name: ByteArray,
+        email: ByteArray,
         relationship: ByteArray,
     );
 

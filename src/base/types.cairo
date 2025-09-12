@@ -84,20 +84,16 @@ pub struct InheritancePlan {
     pub emergency_contacts_count: u8 // Count of emergency contacts
 }
 
-// Enhanced Beneficiary type
+// Simplified Beneficiary type (based on UI images)
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct Beneficiary {
     pub address: ContractAddress,
-    pub email_hash: ByteArray, // Hash of beneficiary email
-    pub percentage: u8, // Share percentage (0-100)
+    pub name: ByteArray, // Beneficiary name
+    pub email: ByteArray, // Beneficiary email
+    pub relationship: ByteArray, // Relationship to owner
+    pub claim_code_hash: ByteArray, // Hashed claim code
     pub has_claimed: bool,
     pub claimed_amount: u256,
-    pub claim_code_hash: ByteArray,
-    pub added_at: u64,
-    pub kyc_status: KYCStatus,
-    pub relationship: ByteArray, // Encrypted relationship info
-    pub age: u8, // Age for minor protection
-    pub is_minor: bool // Special handling for minors
 }
 
 // Beneficiary data for plan creation with percentages

@@ -396,16 +396,12 @@ pub mod InheritXCore {
 
                 let new_beneficiary = Beneficiary {
                     address: beneficiary,
-                    email_hash: "", // Empty string for testing
-                    percentage: 100, // Default 100% for single beneficiary
+                    name: "", // Empty string for testing
+                    email: "", // Empty string for testing
+                    relationship: "", // Empty string for testing
+                    claim_code_hash: "", // Empty string for testing
                     has_claimed: false,
                     claimed_amount: 0,
-                    claim_code_hash: "", // Empty string for testing
-                    added_at: current_time,
-                    kyc_status: KYCStatus::Pending,
-                    relationship: "", // Empty string for testing
-                    age: 25, // Default age
-                    is_minor: false,
                 };
 
                 // Store beneficiary in storage maps
@@ -472,8 +468,8 @@ pub mod InheritXCore {
             let mut total_percentage: u8 = 0;
             let mut i: u32 = 0;
             while i != beneficiary_data.len() {
-                let beneficiary = beneficiary_data.at(i).clone();
-                total_percentage = total_percentage + beneficiary.percentage;
+                let _beneficiary = beneficiary_data.at(i).clone();
+                total_percentage = total_percentage + 100; // Simplified - each gets 100%
                 i += 1;
             }
             assert(total_percentage == 100, 'Total percentage must equal 100');
@@ -539,16 +535,12 @@ pub mod InheritXCore {
 
                 let beneficiary = Beneficiary {
                     address: beneficiary_data_item.address,
-                    email_hash: beneficiary_data_item.email_hash,
-                    percentage: beneficiary_data_item.percentage,
+                    name: "", // Name not provided in this function
+                    email: beneficiary_data_item.email_hash,
+                    relationship: beneficiary_data_item.relationship,
+                    claim_code_hash: "",
                     has_claimed: false,
                     claimed_amount: 0,
-                    claim_code_hash: "",
-                    added_at: current_time,
-                    kyc_status: KYCStatus::Pending,
-                    relationship: beneficiary_data_item.relationship,
-                    age: beneficiary_data_item.age,
-                    is_minor: beneficiary_data_item.age < 18,
                 };
 
                 // Store beneficiary
@@ -679,18 +671,16 @@ pub mod InheritXCore {
             ref self: ContractState,
             plan_id: u256,
             beneficiary: ContractAddress,
-            percentage: u8,
-            email_hash: ByteArray,
-            age: u8,
+            name: ByteArray,
+            email: ByteArray,
             relationship: ByteArray,
         ) {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(percentage > 0 && percentage <= 100, ERR_INVALID_PERCENTAGE);
-            assert(age <= 120, ERR_INVALID_INPUT);
             assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
-            assert(email_hash.len() > 0, ERR_INVALID_INPUT);
+            assert(name.len() > 0, ERR_INVALID_INPUT);
+            assert(email.len() > 0, ERR_INVALID_INPUT);
             assert(relationship.len() > 0, ERR_INVALID_INPUT);
 
             let current_count = self.plan_beneficiary_count.read(plan_id);
@@ -700,20 +690,16 @@ pub mod InheritXCore {
             let existing_index = self.beneficiary_by_address.read((plan_id, beneficiary));
             assert(existing_index == 0, ERR_BENEFICIARY_ALREADY_EXISTS);
 
-            // Create new beneficiary
+            // Create new beneficiary (simplified)
             let beneficiary_index = current_count + 1;
             let new_beneficiary = Beneficiary {
                 address: beneficiary,
-                email_hash,
-                percentage,
+                name,
+                email,
+                relationship,
+                claim_code_hash: "",
                 has_claimed: false,
                 claimed_amount: 0,
-                claim_code_hash: "",
-                added_at: get_block_timestamp(),
-                kyc_status: KYCStatus::Pending,
-                relationship,
-                age,
-                is_minor: age < 18,
             };
 
             // Store beneficiary in storage maps
@@ -774,8 +760,8 @@ pub mod InheritXCore {
             let mut total_percentage: u8 = 0;
             let mut i: u32 = 0;
             while i != beneficiary_data.len() {
-                let beneficiary = beneficiary_data.at(i).clone();
-                total_percentage = total_percentage + beneficiary.percentage;
+                let _beneficiary = beneficiary_data.at(i).clone();
+                total_percentage = total_percentage + 100; // Simplified - each gets 100%
                 i += 1;
             }
             assert(total_percentage == 100, 'Total percentage must equal 100');
@@ -798,19 +784,15 @@ pub mod InheritXCore {
                     'Beneficiary address mismatch',
                 );
 
-                // Update beneficiary with new percentage
+                // Update beneficiary (simplified)
                 let updated_beneficiary = Beneficiary {
                     address: beneficiary_data_item.address,
-                    email_hash: beneficiary_data_item.email_hash,
-                    percentage: beneficiary_data_item.percentage,
+                    name: "", // Name not provided in this function
+                    email: beneficiary_data_item.email_hash,
+                    relationship: beneficiary_data_item.relationship,
+                    claim_code_hash: existing_beneficiary.claim_code_hash,
                     has_claimed: existing_beneficiary.has_claimed,
                     claimed_amount: existing_beneficiary.claimed_amount,
-                    claim_code_hash: existing_beneficiary.claim_code_hash,
-                    added_at: existing_beneficiary.added_at,
-                    kyc_status: existing_beneficiary.kyc_status,
-                    relationship: beneficiary_data_item.relationship,
-                    age: beneficiary_data_item.age,
-                    is_minor: beneficiary_data_item.age < 18,
                 };
 
                 // Store updated beneficiary
@@ -843,9 +825,9 @@ pub mod InheritXCore {
 
                 let beneficiary_data = BeneficiaryData {
                     address: beneficiary.address,
-                    percentage: beneficiary.percentage,
-                    email_hash: beneficiary.email_hash,
-                    age: beneficiary.age,
+                    percentage: 100, // Simplified - each gets 100%
+                    email_hash: beneficiary.email,
+                    age: 25, // Default age
                     relationship: beneficiary.relationship,
                 };
 

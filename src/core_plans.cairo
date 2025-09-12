@@ -128,6 +128,7 @@ pub mod InheritXPlans {
         #[flat]
         PausableEvent: PausableComponent::Event,
         // Plan creation flow events
+        PlanCreated: PlanCreated,
         BasicPlanInfoCreated: BasicPlanInfoCreated,
         AssetAllocationSet: AssetAllocationSet,
         RulesConditionsSet: RulesConditionsSet,
@@ -277,9 +278,8 @@ pub mod InheritXPlans {
             ref self: ContractState,
             plan_id: u256,
             beneficiary: ContractAddress,
-            percentage: u8,
-            email_hash: ByteArray,
-            age: u8,
+            name: ByteArray,
+            email: ByteArray,
             relationship: ByteArray,
         );
 
@@ -399,84 +399,31 @@ pub mod InheritXPlans {
     impl InheritXPlans of IInheritXPlans<ContractState> {
         fn create_inheritance_plan(
             ref self: ContractState,
-            beneficiaries: Array<ContractAddress>,
+            // Step 1: Plan Creation Name & Description
+            plan_name: ByteArray,
+            plan_description: ByteArray,
+            // Step 2: Add Beneficiary (name, relationship, email)
+            beneficiary_name: ByteArray,
+            beneficiary_relationship: ByteArray,
+            beneficiary_email: ByteArray,
+            beneficiary_address: ContractAddress,
+            // Step 3: Asset Allocation
             asset_type: u8,
             asset_amount: u256,
-            nft_token_id: u256,
-            nft_contract: ContractAddress,
-            timeframe: u64,
-            guardian: ContractAddress,
-            encrypted_details: ByteArray,
-            security_level: u8,
-            auto_execute: bool,
-            emergency_contacts: Array<ContractAddress>,
-            claim_codes: Array<ByteArray>,
-        ) -> u256 {
-            // Convert to BeneficiaryData array for unified processing
-            let mut beneficiary_data = ArrayTrait::new();
-            let mut i: u32 = 0;
-            while i != beneficiaries.len() {
-                let beneficiary = *beneficiaries.at(i);
-
-                let data = BeneficiaryData {
-                    address: beneficiary,
-                    email_hash: "",
-                    percentage: 100,
-                    relationship: "",
-                    age: 25,
-                };
-                beneficiary_data.append(data);
-                i += 1;
-            }
-
-            self
-                .create_inheritance_plan_with_percentages(
-                    beneficiary_data,
-                    asset_type,
-                    asset_amount,
-                    nft_token_id,
-                    nft_contract,
-                    timeframe,
-                    guardian,
-                    encrypted_details,
-                    security_level,
-                    auto_execute,
-                    emergency_contacts,
-                    claim_codes,
-                )
-        }
-
-        fn create_inheritance_plan_with_percentages(
-            ref self: ContractState,
-            beneficiary_data: Array<BeneficiaryData>,
-            asset_type: u8,
-            asset_amount: u256,
-            nft_token_id: u256,
-            nft_contract: ContractAddress,
-            timeframe: u64,
-            guardian: ContractAddress,
-            encrypted_details: ByteArray,
-            security_level: u8,
-            auto_execute: bool,
-            emergency_contacts: Array<ContractAddress>,
-            claim_codes: Array<ByteArray>,
+            // Step 4: Rules for Plan Creation (distribution method)
+            distribution_method: u8, // 0: Lump Sum, 1: Quarterly, 2: Yearly, 3: Monthly
+            claim_code: ByteArray // Single 6-digit claim code
         ) -> u256 {
             self.assert_not_paused();
-            assert(beneficiary_data.len() > 0, ERR_INVALID_INPUT);
-            assert(asset_type < 4, ERR_INVALID_ASSET_TYPE);
-            assert(asset_amount > 0 || asset_type == 3, ERR_INVALID_INPUT);
-            assert(timeframe > 0, ERR_INVALID_INPUT);
-            assert(claim_codes.len() == beneficiary_data.len(), 'Claim codes count mismatch');
-
-            // Validate that percentages sum to 100%
-            let mut total_percentage: u8 = 0;
-            let mut i: u32 = 0;
-            while i != beneficiary_data.len() {
-                let beneficiary = beneficiary_data.at(i).clone();
-                total_percentage = total_percentage + beneficiary.percentage;
-                i += 1;
-            }
-            assert(total_percentage == 100, 'Total percentage must equal 100');
+            assert(plan_name.len() > 0, ERR_INVALID_INPUT);
+            assert(plan_description.len() > 0, ERR_INVALID_INPUT);
+            assert(beneficiary_name.len() > 0, ERR_INVALID_INPUT);
+            assert(beneficiary_relationship.len() > 0, ERR_INVALID_INPUT);
+            assert(beneficiary_email.len() > 0, ERR_INVALID_INPUT);
+            assert(asset_type < 3, ERR_INVALID_ASSET_TYPE); // Only STRK, USDT, USDC (no NFT)
+            assert(asset_amount > 0, ERR_INVALID_INPUT);
+            assert(claim_code.len() == 6, 'Invalid length');
+            assert(distribution_method < 4, 'Invalid method');
 
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
@@ -484,70 +431,55 @@ pub mod InheritXPlans {
             let plan_id = self.plan_count.read() + 1;
             let escrow_id = self.escrow_count.read() + 1;
 
-            // Create inheritance plan
+            // Hash the claim code for storage
+            let claim_code_hash = self.hash_claim_code(claim_code.clone());
+
+            // Create simplified inheritance plan
             let plan = InheritancePlan {
                 id: plan_id,
                 owner: caller,
-                beneficiary_count: beneficiary_data.len().try_into().unwrap(),
+                beneficiary_count: 1,
                 asset_type: SecurityImpl::u8_to_asset_type(asset_type),
                 asset_amount,
-                nft_token_id,
-                nft_contract,
-                timeframe,
+                nft_token_id: 0,
+                nft_contract: ZERO_ADDRESS,
+                timeframe: 0, // No timeframe needed for distribution methods
                 created_at: current_time,
-                becomes_active_at: current_time + timeframe,
-                guardian,
-                encrypted_details,
+                becomes_active_at: current_time, // Immediate activation
+                guardian: ZERO_ADDRESS,
+                encrypted_details: "",
                 status: PlanStatus::Active,
                 is_claimed: false,
-                claim_code_hash: "",
+                claim_code_hash: claim_code_hash.clone(),
                 inactivity_threshold: 0,
                 last_activity: current_time,
                 swap_request_id: 0,
                 escrow_id,
-                security_level,
-                auto_execute,
-                emergency_contacts_count: emergency_contacts.len().try_into().unwrap(),
+                security_level: 1, // Default security level
+                auto_execute: false, // Default auto_execute
+                emergency_contacts_count: 0,
             };
 
             self.inheritance_plans.write(plan_id, plan);
             self.plan_count.write(plan_id);
 
             // Store beneficiary count
-            self.plan_beneficiary_count.write(plan_id, beneficiary_data.len().into());
+            self.plan_beneficiary_count.write(plan_id, 1);
 
-            // Add beneficiaries to storage maps with their percentages
-            let mut i: u256 = 0;
-            while i != beneficiary_data.len().into() {
-                let beneficiary_data_item = beneficiary_data.at(i.try_into().unwrap()).clone();
-                let beneficiary_index = i + 1;
-                let claim_code = claim_codes.at(i.try_into().unwrap()).clone();
+            // Create simplified beneficiary (name, email, relationship only)
+            let new_beneficiary = Beneficiary {
+                address: beneficiary_address,
+                name: beneficiary_name.clone(),
+                email: beneficiary_email.clone(),
+                relationship: beneficiary_relationship.clone(),
+                claim_code_hash: claim_code_hash.clone(),
+                has_claimed: false,
+                claimed_amount: 0,
+            };
 
-                // Validate claim code
-                assert(claim_code.len() == 6, 'Invalid length');
-                let claim_code_hash = self.hash_claim_code(claim_code);
-
-                let beneficiary = Beneficiary {
-                    address: beneficiary_data_item.address,
-                    email_hash: beneficiary_data_item.email_hash,
-                    percentage: beneficiary_data_item.percentage,
-                    has_claimed: false,
-                    claimed_amount: 0,
-                    claim_code_hash,
-                    added_at: current_time,
-                    kyc_status: KYCStatus::Pending,
-                    relationship: beneficiary_data_item.relationship,
-                    age: beneficiary_data_item.age,
-                    is_minor: beneficiary_data_item.age < 18,
-                };
-
-                // Store beneficiary
-                self.plan_beneficiaries.write((plan_id, beneficiary_index), beneficiary);
-                self
-                    .beneficiary_by_address
-                    .write((plan_id, beneficiary_data_item.address), beneficiary_index);
-                i += 1;
-            }
+            // Store beneficiary in storage maps
+            self.plan_beneficiaries.write((plan_id, 1), new_beneficiary);
+            self.beneficiary_by_address.write((plan_id, beneficiary_address), 1);
 
             // Create escrow account for this plan
             let escrow = EscrowAccount {
@@ -555,8 +487,8 @@ pub mod InheritXPlans {
                 plan_id,
                 asset_type: SecurityImpl::u8_to_asset_type(asset_type),
                 amount: asset_amount,
-                nft_token_id,
-                nft_contract,
+                nft_token_id: 0,
+                nft_contract: ZERO_ADDRESS,
                 is_locked: false,
                 locked_at: 0,
                 beneficiary: ZERO_ADDRESS,
@@ -571,29 +503,84 @@ pub mod InheritXPlans {
             self.plan_escrow.write(plan_id, escrow_id);
             self.escrow_count.write(escrow_id);
 
+            // Create simplified distribution plan based on selected method
+            let (period_interval, total_periods) = match distribution_method {
+                0 => (0, 1), // Lump Sum
+                1 => (7776000, 4), // Quarterly - 4 quarters (1 year)
+                2 => (31536000, 1), // Yearly - 1 year
+                3 => (2592000, 12), // Monthly - 12 months
+                _ => (0, 1),
+            };
+
+            let period_amount = if distribution_method == 0 {
+                asset_amount // Lump sum gets full amount
+            } else {
+                asset_amount / total_periods.into() // Distribute equally across periods
+            };
+
+            let distribution_plan = DistributionPlan {
+                plan_id,
+                owner: caller,
+                total_amount: asset_amount,
+                distribution_method: u8_to_distribution_method(distribution_method),
+                period_amount,
+                start_date: current_time,
+                end_date: current_time + (period_interval * total_periods),
+                total_periods: total_periods.try_into().unwrap(),
+                completed_periods: 0,
+                next_disbursement_date: current_time,
+                is_active: true,
+                beneficiaries_count: 1,
+                disbursement_status: DisbursementStatus::Pending,
+                created_at: current_time,
+                last_activity: current_time,
+                paused_at: 0,
+                resumed_at: 0,
+            };
+
+            self.distribution_plans.write(plan_id, distribution_plan);
+            self.distribution_plan_count.write((), plan_id);
+
             // Add to user plans
             let user_plan_count = self.user_plan_count.read(caller);
             self.user_plan_count.write(caller, user_plan_count + 1);
 
+            // Emit comprehensive plan creation event
+            self
+                .emit(
+                    PlanCreated {
+                        plan_id,
+                        owner: caller,
+                        plan_name: plan_name.clone(),
+                        plan_description: plan_description.clone(),
+                        beneficiary_name: beneficiary_name.clone(),
+                        beneficiary_relationship: beneficiary_relationship.clone(),
+                        beneficiary_email: beneficiary_email.clone(),
+                        asset_type,
+                        asset_amount,
+                        distribution_method,
+                        created_at: current_time,
+                    },
+                );
+
             plan_id
         }
+
 
         fn add_beneficiary_to_plan(
             ref self: ContractState,
             plan_id: u256,
             beneficiary: ContractAddress,
-            percentage: u8,
-            email_hash: ByteArray,
-            age: u8,
+            name: ByteArray,
+            email: ByteArray,
             relationship: ByteArray,
         ) {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(percentage > 0 && percentage <= 100, ERR_INVALID_PERCENTAGE);
-            assert(age <= 120, ERR_INVALID_INPUT);
             assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
-            assert(email_hash.len() > 0, ERR_INVALID_INPUT);
+            assert(name.len() > 0, ERR_INVALID_INPUT);
+            assert(email.len() > 0, ERR_INVALID_INPUT);
             assert(relationship.len() > 0, ERR_INVALID_INPUT);
 
             let current_count = self.plan_beneficiary_count.read(plan_id);
@@ -603,20 +590,16 @@ pub mod InheritXPlans {
             let existing_index = self.beneficiary_by_address.read((plan_id, beneficiary));
             assert(existing_index == 0, ERR_BENEFICIARY_ALREADY_EXISTS);
 
-            // Create new beneficiary
+            // Create new beneficiary (simplified)
             let beneficiary_index = current_count + 1;
             let new_beneficiary = Beneficiary {
                 address: beneficiary,
-                email_hash,
-                percentage,
+                name,
+                email,
+                relationship,
+                claim_code_hash: "",
                 has_claimed: false,
                 claimed_amount: 0,
-                claim_code_hash: "",
-                added_at: get_block_timestamp(),
-                kyc_status: KYCStatus::Pending,
-                relationship,
-                age,
-                is_minor: age < 18,
             };
 
             // Store beneficiary in storage maps
@@ -701,19 +684,15 @@ pub mod InheritXPlans {
                     'Beneficiary address mismatch',
                 );
 
-                // Update beneficiary with new percentage
+                // Update beneficiary (simplified)
                 let updated_beneficiary = Beneficiary {
                     address: beneficiary_data_item.address,
-                    email_hash: beneficiary_data_item.email_hash,
-                    percentage: beneficiary_data_item.percentage,
+                    name: "", // Name not provided in this function
+                    email: beneficiary_data_item.email_hash,
+                    relationship: beneficiary_data_item.relationship,
+                    claim_code_hash: existing_beneficiary.claim_code_hash,
                     has_claimed: existing_beneficiary.has_claimed,
                     claimed_amount: existing_beneficiary.claimed_amount,
-                    claim_code_hash: existing_beneficiary.claim_code_hash,
-                    added_at: existing_beneficiary.added_at,
-                    kyc_status: existing_beneficiary.kyc_status,
-                    relationship: beneficiary_data_item.relationship,
-                    age: beneficiary_data_item.age,
-                    is_minor: beneficiary_data_item.age < 18,
                 };
 
                 // Store updated beneficiary
@@ -746,9 +725,9 @@ pub mod InheritXPlans {
 
                 let beneficiary_data = BeneficiaryData {
                     address: beneficiary.address,
-                    percentage: beneficiary.percentage,
-                    email_hash: beneficiary.email_hash,
-                    age: beneficiary.age,
+                    percentage: 100, // Default percentage for simplified structure
+                    email_hash: beneficiary.email,
+                    age: 25, // Default age
                     relationship: beneficiary.relationship,
                 };
 
@@ -956,14 +935,12 @@ pub mod InheritXPlans {
             let beneficiary_count = beneficiaries.len().try_into().unwrap();
             let mut total_percentage: u8 = 0;
 
-            // Validate percentages sum to 100%
+            // Simplified validation - assume equal distribution
             let mut i: u32 = 0;
             while i != beneficiaries.len() {
-                let beneficiary = beneficiaries.at(i).clone();
-                total_percentage = total_percentage + beneficiary.percentage;
+                total_percentage = total_percentage + 100; // Each gets 100% in simplified structure
                 i += 1;
             }
-            assert(total_percentage == 100, 'Total percentage must equal 100');
 
             // Store claim codes for each beneficiary
             let mut i: u32 = 0;
