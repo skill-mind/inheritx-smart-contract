@@ -21,6 +21,14 @@ pub trait IInheritXPlans<TContractState> {
         asset_amount: u256,
         // Step 4: Rules for Plan Creation (distribution method)
         distribution_method: u8, // 0: Lump Sum, 1: Quarterly, 2: Yearly, 3: Monthly
+        // Step 5: Distribution Configuration
+        lump_sum_date: u64, // For lump sum: specific date
+        quarterly_percentage: u8, // For quarterly: percentage per quarter
+        yearly_percentage: u8, // For yearly: percentage per year
+        monthly_percentage: u8, // For monthly: percentage per month
+        additional_note: ByteArray, // Additional note for all methods
+        start_date: u64, // Start date for periodic distributions
+        end_date: u64, // End date for periodic distributions
         claim_code: ByteArray // Single 6-digit claim code
     ) -> u256;
 
@@ -132,6 +140,8 @@ pub trait IInheritXPlans<TContractState> {
     fn resume_distribution(ref self: TContractState, plan_id: u256);
 
     fn get_distribution_status(self: @TContractState, plan_id: u256) -> DistributionPlan;
+
+    fn get_distribution_config(self: @TContractState, plan_id: u256) -> DistributionConfig;
 
     // ================ INACTIVITY MONITORING FUNCTIONS ================
 

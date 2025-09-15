@@ -795,6 +795,19 @@ pub struct DistributionRecord {
     pub transaction_hash: ByteArray,
 }
 
+// Distribution configuration for different methods
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionConfig {
+    pub distribution_method: DistributionMethod,
+    pub lump_sum_date: u64, // For lump sum: specific date
+    pub quarterly_percentage: u8, // For quarterly: percentage per quarter
+    pub yearly_percentage: u8, // For yearly: percentage per year
+    pub monthly_percentage: u8, // For monthly: percentage per month
+    pub additional_note: ByteArray, // Additional note for all methods
+    pub start_date: u64, // Start date for periodic distributions
+    pub end_date: u64 // End date for periodic distributions
+}
+
 // Comprehensive plan details response
 #[derive(Serde, Drop, Clone, PartialEq)]
 pub struct PlanDetails {

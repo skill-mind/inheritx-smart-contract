@@ -120,7 +120,9 @@ pub mod InheritXPlans {
         >, // (plan_id, beneficiary_index) -> beneficiary
         disbursement_beneficiary_count: Map<u256, u8>, // plan_id -> beneficiary count
         distribution_plan_count: Map<(), u256>, // Global counter
-        distribution_record_count: Map<(), u256> // Record counter
+        distribution_record_count: Map<(), u256>, // Record counter
+        // Distribution configuration storage
+        distribution_configs: Map<u256, DistributionConfig> // plan_id -> distribution config
     }
 
     #[event]
@@ -373,6 +375,8 @@ pub mod InheritXPlans {
 
         fn get_distribution_status(self: @ContractState, plan_id: u256) -> DistributionPlan;
 
+        fn get_distribution_config(self: @ContractState, plan_id: u256) -> DistributionConfig;
+
         // Inactivity monitoring
         fn create_inactivity_monitor(
             ref self: ContractState,
@@ -420,6 +424,14 @@ pub mod InheritXPlans {
             asset_amount: u256,
             // Step 4: Rules for Plan Creation (distribution method)
             distribution_method: u8, // 0: Lump Sum, 1: Quarterly, 2: Yearly, 3: Monthly
+            // Step 5: Distribution Configuration
+            lump_sum_date: u64, // For lump sum: specific date
+            quarterly_percentage: u8, // For quarterly: percentage per quarter
+            yearly_percentage: u8, // For yearly: percentage per year
+            monthly_percentage: u8, // For monthly: percentage per month
+            additional_note: ByteArray, // Additional note for all methods
+            start_date: u64, // Start date for periodic distributions
+            end_date: u64, // End date for periodic distributions
             claim_code: ByteArray // Single 6-digit claim code
         ) -> u256 {
             self.assert_not_paused();
@@ -432,6 +444,35 @@ pub mod InheritXPlans {
             assert(asset_amount > 0, ERR_INVALID_INPUT);
             assert(claim_code.len() == 6, 'Invalid length');
             assert(distribution_method < 4, 'Invalid method');
+
+            // Validate distribution configuration based on method
+            match distribution_method {
+                0 => { // Lump Sum
+                    assert(lump_sum_date > 0, 'Invalid date');
+                    assert(quarterly_percentage == 0, 'Invalid qty');
+                    assert(yearly_percentage == 0, 'Invalid yr');
+                    assert(monthly_percentage == 0, 'Invalid mth');
+                },
+                1 => { // Quarterly
+                    assert(quarterly_percentage > 0 && quarterly_percentage <= 100, 'Invalid qty');
+                    assert(start_date > 0, 'Invalid start');
+                    assert(end_date > start_date, 'Invalid end');
+                    assert(lump_sum_date == 0, 'Invalid date');
+                },
+                2 => { // Yearly
+                    assert(yearly_percentage > 0 && yearly_percentage <= 100, 'Invalid yr');
+                    assert(start_date > 0, 'Invalid start');
+                    assert(end_date > start_date, 'Invalid end');
+                    assert(lump_sum_date == 0, 'Invalid date');
+                },
+                3 => { // Monthly
+                    assert(monthly_percentage > 0 && monthly_percentage <= 100, 'Invalid mth');
+                    assert(start_date > 0, 'Invalid start');
+                    assert(end_date > start_date, 'Invalid end');
+                    assert(lump_sum_date == 0, 'Invalid date');
+                },
+                _ => { assert(false, 'Invalid method'); },
+            }
 
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
@@ -515,19 +556,45 @@ pub mod InheritXPlans {
             self.plan_escrow.write(plan_id, escrow_id);
             self.escrow_count.write(escrow_id);
 
-            // Create simplified distribution plan based on selected method
-            let (period_interval, total_periods) = match distribution_method {
-                0 => (0, 1), // Lump Sum
-                1 => (7776000, 4), // Quarterly - 4 quarters (1 year)
-                2 => (31536000, 1), // Yearly - 1 year
-                3 => (2592000, 12), // Monthly - 12 months
-                _ => (0, 1),
+            // Create distribution configuration
+            let distribution_config = DistributionConfig {
+                distribution_method: u8_to_distribution_method(distribution_method),
+                lump_sum_date,
+                quarterly_percentage,
+                yearly_percentage,
+                monthly_percentage,
+                additional_note,
+                start_date,
+                end_date,
             };
 
-            let period_amount = if distribution_method == 0 {
-                asset_amount // Lump sum gets full amount
-            } else {
-                asset_amount / total_periods.into() // Distribute equally across periods
+            // Store distribution configuration
+            self.distribution_configs.write(plan_id, distribution_config);
+
+            // Create distribution plan based on selected method and configuration
+            let (_period_interval, total_periods, period_amount) = match distribution_method {
+                0 => { // Lump Sum
+                    (0, 1, asset_amount) // Full amount on specific date
+                },
+                1 => { // Quarterly
+                    let interval = 7776000; // 3 months
+                    let periods = (end_date - start_date) / interval;
+                    let amount = (asset_amount * quarterly_percentage.into()) / 100;
+                    (interval, periods, amount)
+                },
+                2 => { // Yearly
+                    let interval = 31536000; // 1 year
+                    let periods = (end_date - start_date) / interval;
+                    let amount = (asset_amount * yearly_percentage.into()) / 100;
+                    (interval, periods, amount)
+                },
+                3 => { // Monthly
+                    let interval = 2592000; // 1 month
+                    let periods = (end_date - start_date) / interval;
+                    let amount = (asset_amount * monthly_percentage.into()) / 100;
+                    (interval, periods, amount)
+                },
+                _ => (0, 1, asset_amount),
             };
 
             let distribution_plan = DistributionPlan {
@@ -536,11 +603,23 @@ pub mod InheritXPlans {
                 total_amount: asset_amount,
                 distribution_method: u8_to_distribution_method(distribution_method),
                 period_amount,
-                start_date: current_time,
-                end_date: current_time + (period_interval * total_periods),
+                start_date: if distribution_method == 0 {
+                    lump_sum_date
+                } else {
+                    start_date
+                },
+                end_date: if distribution_method == 0 {
+                    lump_sum_date
+                } else {
+                    end_date
+                },
                 total_periods: total_periods.try_into().unwrap(),
                 completed_periods: 0,
-                next_disbursement_date: current_time,
+                next_disbursement_date: if distribution_method == 0 {
+                    lump_sum_date
+                } else {
+                    start_date
+                },
                 is_active: true,
                 beneficiaries_count: 1,
                 disbursement_status: DisbursementStatus::Pending,
@@ -751,6 +830,7 @@ pub mod InheritXPlans {
         }
 
         fn get_beneficiaries(self: @ContractState, plan_id: u256) -> Array<Beneficiary> {
+            self.assert_plan_exists(plan_id);
             let mut beneficiaries = ArrayTrait::new();
             let beneficiary_count = self.plan_beneficiary_count.read(plan_id);
 
@@ -771,6 +851,7 @@ pub mod InheritXPlans {
         }
 
         fn get_inheritance_plan(self: @ContractState, plan_id: u256) -> PlanDetails {
+            self.assert_plan_exists(plan_id);
             let plan = self.inheritance_plans.read(plan_id);
             let plan_name = self.plan_names.read(plan_id);
             let plan_description = self.plan_descriptions.read(plan_id);
@@ -798,6 +879,7 @@ pub mod InheritXPlans {
         }
 
         fn get_escrow_details(self: @ContractState, plan_id: u256) -> EscrowAccount {
+            self.assert_plan_exists(plan_id);
             // Get the escrow ID for this plan
             let escrow_id = self.plan_escrow.read(plan_id);
             if escrow_id == 0 {
@@ -853,16 +935,19 @@ pub mod InheritXPlans {
 
         // Required getter functions
         fn get_plan_name(self: @ContractState, plan_id: u256) -> ByteArray {
+            self.assert_plan_exists(plan_id);
             self.plan_names.read(plan_id)
         }
 
         fn get_plan_description(self: @ContractState, plan_id: u256) -> ByteArray {
+            self.assert_plan_exists(plan_id);
             self.plan_descriptions.read(plan_id)
         }
 
         fn get_plan_summary(
             self: @ContractState, plan_id: u256,
         ) -> (ByteArray, ByteArray, u256, AssetType, u64) {
+            self.assert_plan_exists(plan_id);
             let plan_name = self.plan_names.read(plan_id);
             let plan_description = self.plan_descriptions.read(plan_id);
             let plan = self.inheritance_plans.read(plan_id);
@@ -1359,7 +1444,13 @@ pub mod InheritXPlans {
         }
 
         fn get_distribution_status(self: @ContractState, plan_id: u256) -> DistributionPlan {
+            self.assert_plan_exists(plan_id);
             self.distribution_plans.read(plan_id)
+        }
+
+        fn get_distribution_config(self: @ContractState, plan_id: u256) -> DistributionConfig {
+            self.assert_plan_exists(plan_id);
+            self.distribution_configs.read(plan_id)
         }
 
 

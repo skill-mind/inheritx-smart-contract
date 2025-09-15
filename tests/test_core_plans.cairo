@@ -72,6 +72,26 @@ fn create_test_claim_code() -> ByteArray {
     "123456"
 }
 
+// Helper function to create test distribution config for lump sum
+fn create_lump_sum_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
+    (1234567890, 0, 0, 0, "Test note", 0, 0)
+}
+
+// Helper function to create test distribution config for quarterly
+fn create_quarterly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
+    (0, 25, 0, 0, "Quarterly note", 1234567890, 1234567890 + 31536000)
+}
+
+// Helper function to create test distribution config for yearly
+fn create_yearly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
+    (0, 0, 50, 0, "Yearly note", 1234567890, 1234567890 + 31536000)
+}
+
+// Helper function to create test distribution config for monthly
+fn create_monthly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
+    (0, 0, 0, 10, "Monthly note", 1234567890, 1234567890 + 31536000)
+}
+
 // Deploy the InheritXPlans contract
 fn deploy_plans_contract() -> IInheritXPlansDispatcher {
     let contract = declare("InheritXPlans").unwrap().contract_class();
@@ -103,6 +123,17 @@ fn test_create_inheritance_plan_success() {
     // Create inheritance plan
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -114,6 +145,13 @@ fn test_create_inheritance_plan_success() {
             0, // STRK asset type
             1000000, // 1 STRK (with 6 decimals)
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
 
@@ -139,6 +177,17 @@ fn test_create_inheritance_plan_invalid_inputs() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     // Test empty plan name - this should fail
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_lump_sum_config();
+
     contract
         .create_inheritance_plan(
             create_empty_byte_array(), // Empty plan name
@@ -150,6 +199,13 @@ fn test_create_inheritance_plan_invalid_inputs() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
 
@@ -163,6 +219,17 @@ fn test_create_inheritance_plan_invalid_asset_type() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     // Test invalid asset type (should be 0, 1, or 2)
     contract
         .create_inheritance_plan(
@@ -175,6 +242,13 @@ fn test_create_inheritance_plan_invalid_asset_type() {
             5, // Invalid asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
 
@@ -188,6 +262,17 @@ fn test_create_inheritance_plan_invalid_claim_code_length() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     // Test invalid claim code length (should be exactly 6 digits)
     contract
         .create_inheritance_plan(
@@ -200,6 +285,13 @@ fn test_create_inheritance_plan_invalid_claim_code_length() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             "12345" // Invalid length (5 digits)
         );
 
@@ -216,6 +308,17 @@ fn test_get_plan_count() {
 
     // Create a plan
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        _additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -227,6 +330,13 @@ fn test_get_plan_count() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            _additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -241,6 +351,17 @@ fn test_get_plan_name_and_description() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -252,6 +373,13 @@ fn test_get_plan_name_and_description() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -269,6 +397,17 @@ fn test_get_plan_summary() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -280,6 +419,13 @@ fn test_get_plan_summary() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -300,6 +446,17 @@ fn test_get_beneficiaries() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -311,6 +468,13 @@ fn test_get_beneficiaries() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -369,6 +533,17 @@ fn test_create_plan_with_lump_sum_distribution() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -380,6 +555,13 @@ fn test_create_plan_with_lump_sum_distribution() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -396,6 +578,17 @@ fn test_create_plan_with_quarterly_distribution() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_quarterly_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -407,6 +600,13 @@ fn test_create_plan_with_quarterly_distribution() {
             0, // STRK asset type
             1000000,
             1, // Quarterly distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -421,6 +621,17 @@ fn test_create_plan_with_yearly_distribution() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_yearly_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -432,6 +643,13 @@ fn test_create_plan_with_yearly_distribution() {
             0, // STRK asset type
             1000000,
             2, // Yearly distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -446,6 +664,17 @@ fn test_create_plan_with_monthly_distribution() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_monthly_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -457,6 +686,13 @@ fn test_create_plan_with_monthly_distribution() {
             0, // STRK asset type
             1000000,
             3, // Monthly distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            start_date,
+            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -473,6 +709,17 @@ fn test_create_plan_with_strk_asset() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -484,6 +731,13 @@ fn test_create_plan_with_strk_asset() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -497,6 +751,17 @@ fn test_create_plan_with_usdt_asset() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -508,6 +773,13 @@ fn test_create_plan_with_usdt_asset() {
             1, // USDT asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -521,6 +793,17 @@ fn test_create_plan_with_usdc_asset() {
     let contract = deploy_plans_contract();
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -532,6 +815,13 @@ fn test_create_plan_with_usdc_asset() {
             2, // USDC asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -548,6 +838,17 @@ fn test_plan_creation_access_control() {
 
     // Test that only the caller can create plans
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan_id = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -559,6 +860,13 @@ fn test_plan_creation_access_control() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
     assert(plan_id == 1, 'Created');
@@ -574,6 +882,17 @@ fn test_multiple_plans_creation() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     // Create multiple plans
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let plan1_id = contract
         .create_inheritance_plan(
             "Plan 1",
@@ -585,8 +904,26 @@ fn test_multiple_plans_creation() {
             0, // STRK
             1000000,
             0, // Lump sum
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             "111111",
         );
+
+    let (
+        lump_sum_date2,
+        quarterly_percentage2,
+        yearly_percentage2,
+        monthly_percentage2,
+        additional_note2,
+        start_date2,
+        end_date2,
+    ) =
+        create_quarterly_config();
 
     let plan2_id = contract
         .create_inheritance_plan(
@@ -599,6 +936,13 @@ fn test_multiple_plans_creation() {
             1, // USDT
             2000000,
             1, // Quarterly
+            lump_sum_date2,
+            quarterly_percentage2,
+            yearly_percentage2,
+            monthly_percentage2,
+            additional_note2,
+            start_date2,
+            end_date2,
             "222222",
         );
 
@@ -629,6 +973,17 @@ fn test_zero_asset_amount() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     // Test with zero asset amount (should fail)
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -640,6 +995,13 @@ fn test_zero_asset_amount() {
             0, // STRK asset type
             0, // Zero asset amount
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
 
@@ -653,6 +1015,17 @@ fn test_zero_address_beneficiary() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     // Test with zero address beneficiary (should fail)
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        _start_date,
+        _end_date,
+    ) =
+        create_lump_sum_config();
+
     let _result = contract
         .create_inheritance_plan(
             create_test_plan_name(),
@@ -664,8 +1037,64 @@ fn test_zero_address_beneficiary() {
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            _start_date,
+            _end_date,
             create_test_claim_code(),
         );
 
     stop_cheat_caller_address(contract.contract_address);
+}
+
+#[test]
+fn test_get_distribution_config() {
+    let contract = deploy_plans_contract();
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date,
+        quarterly_percentage,
+        yearly_percentage,
+        monthly_percentage,
+        additional_note,
+        start_date,
+        end_date,
+    ) =
+        create_lump_sum_config();
+
+    let plan_id = contract
+        .create_inheritance_plan(
+            create_test_plan_name(),
+            create_test_plan_description(),
+            create_test_beneficiary_name(),
+            create_test_beneficiary_relationship(),
+            create_test_beneficiary_email(),
+            USER1_ADDR(),
+            0, // STRK asset type
+            1000000,
+            0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note.clone(),
+            start_date,
+            end_date,
+            create_test_claim_code(),
+        );
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Test get distribution config
+    let config = contract.get_distribution_config(plan_id);
+    assert(config.lump_sum_date == lump_sum_date, 'Date mismatch');
+    assert(config.quarterly_percentage == quarterly_percentage, 'Qty % mismatch');
+    assert(config.yearly_percentage == yearly_percentage, 'Yr % mismatch');
+    assert(config.monthly_percentage == monthly_percentage, 'Mth % mismatch');
+    assert(config.additional_note == additional_note.clone(), 'Note mismatch');
+    assert(config.start_date == start_date, 'Start mismatch');
+    assert(config.end_date == end_date, 'End mismatch');
 }
