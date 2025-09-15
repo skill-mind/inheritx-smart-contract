@@ -67,45 +67,19 @@ pub trait IInheritXPlans<TContractState> {
     ) -> InactivityMonitor;
 
     fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
-    fn get_plan_name(self: @TContractState, plan_id: u256) -> ByteArray;
-    fn get_plan_description(self: @TContractState, plan_id: u256) -> ByteArray;
     fn get_plan_summary(
         self: @TContractState, plan_id: u256,
     ) -> (ByteArray, ByteArray, u256, AssetType, u64);
+
+    fn get_plan_info(
+        self: @TContractState, plan_id: u256,
+    ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
 
     // ================ HELPER FUNCTIONS ================
 
     fn hash_claim_code(self: @TContractState, code: ByteArray) -> ByteArray;
 
     // ================ PLAN CREATION FLOW FUNCTIONS ================
-
-    fn create_plan_basic_info(
-        ref self: TContractState,
-        plan_name: ByteArray,
-        plan_description: ByteArray,
-        owner_email_hash: ByteArray,
-        initial_beneficiary: ContractAddress,
-        initial_beneficiary_email: ByteArray,
-        claim_code: ByteArray,
-    ) -> u256;
-
-    fn set_asset_allocation(
-        ref self: TContractState,
-        basic_info_id: u256,
-        beneficiaries: Array<Beneficiary>,
-        asset_allocations: Array<AssetAllocation>,
-        claim_codes: Array<ByteArray>,
-    );
-
-    fn mark_rules_conditions_set(ref self: TContractState, basic_info_id: u256);
-
-    fn mark_verification_completed(ref self: TContractState, basic_info_id: u256);
-
-    fn mark_preview_ready(ref self: TContractState, basic_info_id: u256);
-
-    fn activate_inheritance_plan(
-        ref self: TContractState, basic_info_id: u256, activation_confirmation: ByteArray,
-    );
 
     // ================ PLAN MANAGEMENT FUNCTIONS ================
 

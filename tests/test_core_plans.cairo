@@ -347,52 +347,6 @@ fn test_get_plan_count() {
 }
 
 #[test]
-fn test_get_plan_name_and_description() {
-    let contract = deploy_plans_contract();
-
-    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
-    let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
-    ) =
-        create_lump_sum_config();
-
-    let plan_id = contract
-        .create_inheritance_plan(
-            create_test_plan_name(),
-            create_test_plan_description(),
-            create_test_beneficiary_name(),
-            create_test_beneficiary_relationship(),
-            create_test_beneficiary_email(),
-            USER1_ADDR(),
-            0, // STRK asset type
-            1000000,
-            0, // Lump sum distribution
-            lump_sum_date,
-            quarterly_percentage,
-            yearly_percentage,
-            monthly_percentage,
-            additional_note,
-            start_date,
-            end_date,
-            create_test_claim_code(),
-        );
-    stop_cheat_caller_address(contract.contract_address);
-
-    // Test getter functions
-    let plan_name = contract.get_plan_name(plan_id);
-    let plan_description = contract.get_plan_description(plan_id);
-
-    assert(plan_name == create_test_plan_name(), 'Name mismatch');
-    assert(plan_description == create_test_plan_description(), 'Desc mismatch');
-}
-
-#[test]
 fn test_get_plan_summary() {
     let contract = deploy_plans_contract();
 

@@ -100,18 +100,6 @@ pub mod InheritXPlans {
         usdc_token: ContractAddress,
         // Security settings
         security_settings: SecuritySettings,
-        // Plan creation flow storage
-        basic_plan_info: Map<u256, BasicPlanInfo>, // basic_info_id -> basic_info
-        plan_rules: Map<u256, PlanRules>, // plan_id -> rules
-        verification_data: Map<u256, VerificationData>, // plan_id -> verification
-        plan_previews: Map<u256, PlanPreview>, // plan_id -> preview
-        plan_asset_allocations: Map<u256, u8>, // plan_id -> allocation count
-        // Activity logging
-        activity_count: Map<u256, u256>, // plan_id -> activity count
-        global_activity_log: Map<u256, ActivityLog>, // activity_id -> activity
-        // Plan creation tracking
-        plan_creation_steps: Map<u256, PlanCreationStatus>, // plan_id -> creation status
-        pending_plans: Map<u256, bool>, // plan_id -> is_pending
         // Distribution storage
         distribution_plans: Map<u256, DistributionPlan>, // plan_id -> distribution plan
         distribution_records: Map<u256, DistributionRecord>, // record_id -> distribution record
@@ -263,20 +251,6 @@ pub mod InheritXPlans {
             emergency_contacts: Array<ContractAddress>,
         ) -> u256;
 
-        fn create_inheritance_plan_with_percentages(
-            ref self: ContractState,
-            beneficiary_data: Array<BeneficiaryData>,
-            asset_type: u8,
-            asset_amount: u256,
-            nft_token_id: u256,
-            nft_contract: ContractAddress,
-            timeframe: u64,
-            guardian: ContractAddress,
-            encrypted_details: ByteArray,
-            security_level: u8,
-            auto_execute: bool,
-            emergency_contacts: Array<ContractAddress>,
-        ) -> u256;
 
         // Beneficiary management
         fn add_beneficiary_to_plan(
@@ -310,34 +284,15 @@ pub mod InheritXPlans {
             self: @ContractState, wallet_address: ContractAddress,
         ) -> InactivityMonitor;
         fn get_beneficiary_count(self: @ContractState, basic_info_id: u256) -> u256;
-        fn get_plan_name(self: @ContractState, plan_id: u256) -> ByteArray;
-        fn get_plan_description(self: @ContractState, plan_id: u256) -> ByteArray;
         fn get_plan_summary(
             self: @ContractState, plan_id: u256,
         ) -> (ByteArray, ByteArray, u256, AssetType, u64);
 
+        fn get_plan_info(
+            self: @ContractState, plan_id: u256,
+        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+
         // Plan creation flow
-        fn create_plan_basic_info(
-            ref self: ContractState,
-            plan_name: ByteArray,
-            plan_description: ByteArray,
-            owner_email_hash: ByteArray,
-            initial_beneficiary: ContractAddress,
-            initial_beneficiary_email: ByteArray,
-        ) -> u256;
-
-        fn set_asset_allocation(
-            ref self: ContractState,
-            basic_info_id: u256,
-            beneficiaries: Array<Beneficiary>,
-            asset_allocations: Array<AssetAllocation>,
-        );
-
-        fn mark_rules_conditions_set(ref self: ContractState, basic_info_id: u256);
-
-        fn mark_verification_completed(ref self: ContractState, basic_info_id: u256);
-
-        fn mark_preview_ready(ref self: ContractState, basic_info_id: u256);
 
         fn activate_inheritance_plan(
             ref self: ContractState, basic_info_id: u256, activation_confirmation: ByteArray,
@@ -934,15 +889,6 @@ pub mod InheritXPlans {
         }
 
         // Required getter functions
-        fn get_plan_name(self: @ContractState, plan_id: u256) -> ByteArray {
-            self.assert_plan_exists(plan_id);
-            self.plan_names.read(plan_id)
-        }
-
-        fn get_plan_description(self: @ContractState, plan_id: u256) -> ByteArray {
-            self.assert_plan_exists(plan_id);
-            self.plan_descriptions.read(plan_id)
-        }
 
         fn get_plan_summary(
             self: @ContractState, plan_id: u256,
@@ -952,6 +898,28 @@ pub mod InheritXPlans {
             let plan_description = self.plan_descriptions.read(plan_id);
             let plan = self.inheritance_plans.read(plan_id);
             (plan_name, plan_description, plan.asset_amount, plan.asset_type, plan.created_at)
+        }
+
+        fn get_plan_info(
+            self: @ContractState, plan_id: u256,
+        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus) {
+            self.assert_plan_exists(plan_id);
+            let plan_name = self.plan_names.read(plan_id);
+            let plan_description = self.plan_descriptions.read(plan_id);
+            let plan = self.inheritance_plans.read(plan_id);
+
+            // Return: name, description, amount, asset_type, created_at, owner, security_level,
+            // status
+            (
+                plan_name,
+                plan_description,
+                plan.asset_amount,
+                plan.asset_type,
+                plan.created_at,
+                plan.owner,
+                plan.security_level,
+                plan.status,
+            )
         }
 
         // ================ HELPER FUNCTIONS ================
@@ -984,185 +952,6 @@ pub mod InheritXPlans {
         }
 
         // ================ PLAN CREATION FLOW FUNCTIONS ================
-
-        fn create_plan_basic_info(
-            ref self: ContractState,
-            plan_name: ByteArray,
-            plan_description: ByteArray,
-            owner_email_hash: ByteArray,
-            initial_beneficiary: ContractAddress,
-            initial_beneficiary_email: ByteArray,
-            claim_code: ByteArray,
-        ) -> u256 {
-            self.assert_not_paused();
-            assert(plan_name.len() > 0, ERR_INVALID_INPUT);
-            assert(plan_description.len() > 0, ERR_INVALID_INPUT);
-            assert(owner_email_hash.len() > 0, ERR_INVALID_INPUT);
-            assert(initial_beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
-            assert(initial_beneficiary_email.len() > 0, ERR_INVALID_INPUT);
-            assert(claim_code.len() == 6, 'Invalid claim code length');
-
-            let caller = get_caller_address();
-            let current_time = get_block_timestamp();
-            let basic_info_id = self.plan_count.read() + 1;
-
-            // Hash the claim code for storage
-            let claim_code_hash = self.hash_claim_code(claim_code.clone());
-
-            let plan_name_clone = plan_name.clone();
-            let basic_info = BasicPlanInfo {
-                plan_name,
-                plan_description,
-                owner_email_hash,
-                initial_beneficiary,
-                initial_beneficiary_email,
-                claim_code_hash,
-                created_at: current_time,
-                status: PlanCreationStatus::BasicInfoCreated,
-            };
-
-            self.basic_plan_info.write(basic_info_id, basic_info);
-
-            self
-                .emit(
-                    BasicPlanInfoCreated {
-                        basic_info_id,
-                        owner: caller,
-                        plan_name: plan_name_clone,
-                        created_at: current_time,
-                    },
-                );
-
-            basic_info_id
-        }
-
-        fn set_asset_allocation(
-            ref self: ContractState,
-            basic_info_id: u256,
-            beneficiaries: Array<Beneficiary>,
-            asset_allocations: Array<AssetAllocation>,
-            claim_codes: Array<ByteArray>,
-        ) {
-            self.assert_not_paused();
-            assert(basic_info_id > 0, ERR_INVALID_INPUT);
-            assert(beneficiaries.len() > 0, ERR_INVALID_INPUT);
-            assert(asset_allocations.len() > 0, ERR_INVALID_INPUT);
-            assert(claim_codes.len() == beneficiaries.len(), 'Count mismatch');
-
-            let basic_info = self.basic_plan_info.read(basic_info_id);
-            assert(basic_info.created_at != 0, ERR_PLAN_NOT_FOUND);
-
-            let current_time = get_block_timestamp();
-            let beneficiary_count = beneficiaries.len().try_into().unwrap();
-            let mut total_percentage: u8 = 0;
-
-            // Simplified validation - assume equal distribution
-            let mut i: u32 = 0;
-            while i != beneficiaries.len() {
-                total_percentage = total_percentage + 100; // Each gets 100% in simplified structure
-                i += 1;
-            }
-
-            // Store claim codes for each beneficiary
-            let mut i: u32 = 0;
-            while i != beneficiaries.len() {
-                let claim_code = claim_codes.at(i).clone();
-                assert(claim_code.len() == 6, 'Invalid length');
-                let claim_code_hash = self.hash_claim_code(claim_code);
-
-                // Store claim code hash for this beneficiary
-                let beneficiary = beneficiaries.at(i).clone();
-                let mut updated_beneficiary = beneficiary;
-                updated_beneficiary.claim_code_hash = claim_code_hash;
-
-                // Store the updated beneficiary back
-                self.plan_beneficiaries.write((basic_info_id, i.into() + 1), updated_beneficiary);
-                i += 1;
-            }
-
-            self.plan_asset_allocations.write(basic_info_id, beneficiary_count);
-
-            self
-                .emit(
-                    AssetAllocationSet {
-                        plan_id: basic_info_id,
-                        beneficiary_count,
-                        total_percentage,
-                        set_at: current_time,
-                    },
-                );
-        }
-
-        fn mark_rules_conditions_set(ref self: ContractState, basic_info_id: u256) {
-            self.assert_not_paused();
-            assert(basic_info_id > 0, ERR_INVALID_INPUT);
-            let basic_info = self.basic_plan_info.read(basic_info_id);
-            assert(basic_info.created_at != 0, ERR_PLAN_NOT_FOUND);
-            self
-                .emit(
-                    RulesConditionsSet {
-                        plan_id: basic_info_id,
-                        guardian: ZERO_ADDRESS,
-                        auto_execute: false,
-                        set_at: get_block_timestamp(),
-                    },
-                );
-        }
-
-        fn mark_verification_completed(ref self: ContractState, basic_info_id: u256) {
-            self.assert_not_paused();
-            assert(basic_info_id > 0, ERR_INVALID_INPUT);
-            let basic_info = self.basic_plan_info.read(basic_info_id);
-            assert(basic_info.created_at != 0, ERR_PLAN_NOT_FOUND);
-            self
-                .emit(
-                    VerificationCompleted {
-                        plan_id: basic_info_id,
-                        kyc_status: KYCStatus::Approved,
-                        compliance_status: ComplianceStatus::Compliant,
-                        verified_at: get_block_timestamp(),
-                    },
-                );
-        }
-
-        fn mark_preview_ready(ref self: ContractState, basic_info_id: u256) {
-            self.assert_not_paused();
-            assert(basic_info_id > 0, ERR_INVALID_INPUT);
-            let basic_info = self.basic_plan_info.read(basic_info_id);
-            assert(basic_info.created_at != 0, ERR_PLAN_NOT_FOUND);
-            self
-                .emit(
-                    PlanPreviewGenerated {
-                        plan_id: basic_info_id,
-                        validation_status: ValidationStatus::Valid,
-                        activation_ready: true,
-                        generated_at: get_block_timestamp(),
-                    },
-                );
-        }
-
-
-        fn activate_inheritance_plan(
-            ref self: ContractState, basic_info_id: u256, activation_confirmation: ByteArray,
-        ) {
-            self.assert_not_paused();
-            assert(basic_info_id > 0, ERR_INVALID_INPUT);
-            assert(activation_confirmation.len() > 0, ERR_INVALID_INPUT);
-
-            let basic_info = self.basic_plan_info.read(basic_info_id);
-            assert(basic_info.created_at != 0, ERR_PLAN_NOT_FOUND);
-
-            let current_time = get_block_timestamp();
-
-            self
-                .emit(
-                    PlanActivated {
-                        plan_id: basic_info_id,
-                        activated_by: get_caller_address(),
-                        activated_at: current_time,
-                    },
-                );
-        }
 
         fn extend_plan_timeframe(ref self: ContractState, plan_id: u256, additional_time: u64) {
             self.assert_not_paused();
