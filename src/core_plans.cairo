@@ -256,7 +256,6 @@ pub mod InheritXPlans {
         fn add_beneficiary_to_plan(
             ref self: ContractState,
             plan_id: u256,
-            beneficiary: ContractAddress,
             name: ByteArray,
             email: ByteArray,
             relationship: ByteArray,
@@ -286,7 +285,7 @@ pub mod InheritXPlans {
         fn get_beneficiary_count(self: @ContractState, basic_info_id: u256) -> u256;
         fn get_plan_summary(
             self: @ContractState, plan_id: u256,
-        ) -> (ByteArray, ByteArray, u256, AssetType, u64);
+        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
 
         fn get_plan_info(
             self: @ContractState, plan_id: u256,
@@ -317,8 +316,6 @@ pub mod InheritXPlans {
             distribution_method: u8, // 0: LumpSum, 1: Quarterly, 2: Yearly, 3: Monthly
             total_amount: u256,
             period_amount: u256,
-            start_date: u64,
-            end_date: u64,
             beneficiaries: Array<DisbursementBeneficiary>,
         ) -> u256;
 
@@ -373,7 +370,6 @@ pub mod InheritXPlans {
             beneficiary_name: ByteArray,
             beneficiary_relationship: ByteArray,
             beneficiary_email: ByteArray,
-            beneficiary_address: ContractAddress,
             // Step 3: Asset Allocation
             asset_type: u8,
             asset_amount: u256,
@@ -385,8 +381,6 @@ pub mod InheritXPlans {
             yearly_percentage: u8, // For yearly: percentage per year
             monthly_percentage: u8, // For monthly: percentage per month
             additional_note: ByteArray, // Additional note for all methods
-            start_date: u64, // Start date for periodic distributions
-            end_date: u64, // End date for periodic distributions
             claim_code: ByteArray // Single 6-digit claim code
         ) -> u256 {
             self.assert_not_paused();
@@ -400,6 +394,17 @@ pub mod InheritXPlans {
             assert(claim_code.len() == 6, 'Invalid length');
             assert(distribution_method < 4, 'Invalid method');
 
+            // Calculate start and end dates based on distribution method
+            let current_time = get_block_timestamp();
+            let start_date = current_time;
+            let end_date = match distribution_method {
+                0 => current_time, // Lump sum - immediate
+                1 => current_time + 31536000, // Quarterly - 1 year from now
+                2 => current_time + 126144000, // Yearly - 4 years from now  
+                3 => current_time + 31536000, // Monthly - 1 year from now
+                _ => current_time,
+            };
+
             // Validate distribution configuration based on method
             match distribution_method {
                 0 => { // Lump Sum
@@ -410,27 +415,20 @@ pub mod InheritXPlans {
                 },
                 1 => { // Quarterly
                     assert(quarterly_percentage > 0 && quarterly_percentage <= 100, 'Invalid qty');
-                    assert(start_date > 0, 'Invalid start');
-                    assert(end_date > start_date, 'Invalid end');
                     assert(lump_sum_date == 0, 'Invalid date');
                 },
                 2 => { // Yearly
                     assert(yearly_percentage > 0 && yearly_percentage <= 100, 'Invalid yr');
-                    assert(start_date > 0, 'Invalid start');
-                    assert(end_date > start_date, 'Invalid end');
                     assert(lump_sum_date == 0, 'Invalid date');
                 },
                 3 => { // Monthly
                     assert(monthly_percentage > 0 && monthly_percentage <= 100, 'Invalid mth');
-                    assert(start_date > 0, 'Invalid start');
-                    assert(end_date > start_date, 'Invalid end');
                     assert(lump_sum_date == 0, 'Invalid date');
                 },
                 _ => { assert(false, 'Invalid method'); },
             }
 
             let caller = get_caller_address();
-            let current_time = get_block_timestamp();
 
             let plan_id = self.plan_count.read() + 1;
             let escrow_id = self.escrow_count.read() + 1;
@@ -476,7 +474,7 @@ pub mod InheritXPlans {
 
             // Create simplified beneficiary (name, email, relationship only)
             let new_beneficiary = Beneficiary {
-                address: beneficiary_address,
+                address: ZERO_ADDRESS, // No address needed
                 name: beneficiary_name.clone(),
                 email: beneficiary_email.clone(),
                 relationship: beneficiary_relationship.clone(),
@@ -487,7 +485,6 @@ pub mod InheritXPlans {
 
             // Store beneficiary in storage maps
             self.plan_beneficiaries.write((plan_id, 1), new_beneficiary);
-            self.beneficiary_by_address.write((plan_id, beneficiary_address), 1);
 
             // Create escrow account for this plan
             let escrow = EscrowAccount {
@@ -616,7 +613,6 @@ pub mod InheritXPlans {
         fn add_beneficiary_to_plan(
             ref self: ContractState,
             plan_id: u256,
-            beneficiary: ContractAddress,
             name: ByteArray,
             email: ByteArray,
             relationship: ByteArray,
@@ -624,7 +620,6 @@ pub mod InheritXPlans {
             self.assert_not_paused();
             self.assert_plan_exists(plan_id);
             self.assert_plan_owner(plan_id);
-            assert(beneficiary != ZERO_ADDRESS, ERR_ZERO_ADDRESS);
             assert(name.len() > 0, ERR_INVALID_INPUT);
             assert(email.len() > 0, ERR_INVALID_INPUT);
             assert(relationship.len() > 0, ERR_INVALID_INPUT);
@@ -632,14 +627,10 @@ pub mod InheritXPlans {
             let current_count = self.plan_beneficiary_count.read(plan_id);
             assert(current_count < 10, ERR_MAX_BENEFICIARIES_REACHED);
 
-            // Check if beneficiary already exists for this plan
-            let existing_index = self.beneficiary_by_address.read((plan_id, beneficiary));
-            assert(existing_index == 0, ERR_BENEFICIARY_ALREADY_EXISTS);
-
-            // Create new beneficiary (simplified)
+            // Create new beneficiary (simplified - no address needed)
             let beneficiary_index = current_count + 1;
             let new_beneficiary = Beneficiary {
-                address: beneficiary,
+                address: ZERO_ADDRESS, // No address needed
                 name,
                 email,
                 relationship,
@@ -650,7 +641,6 @@ pub mod InheritXPlans {
 
             // Store beneficiary in storage maps
             self.plan_beneficiaries.write((plan_id, beneficiary_index), new_beneficiary);
-            self.beneficiary_by_address.write((plan_id, beneficiary), beneficiary_index);
             self.plan_beneficiary_count.write(plan_id, beneficiary_index);
 
             // Update plan beneficiary count
@@ -892,13 +882,26 @@ pub mod InheritXPlans {
 
         fn get_plan_summary(
             self: @ContractState, plan_id: u256,
-        ) -> (ByteArray, ByteArray, u256, AssetType, u64) {
+        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus) {
             self.assert_plan_exists(plan_id);
             let plan_name = self.plan_names.read(plan_id);
             let plan_description = self.plan_descriptions.read(plan_id);
             let plan = self.inheritance_plans.read(plan_id);
-            (plan_name, plan_description, plan.asset_amount, plan.asset_type, plan.created_at)
+
+            // Return basic plan data: name, description, amount, asset_type, created_at, owner,
+            // beneficiary_count, status
+            (
+                plan_name,
+                plan_description,
+                plan.asset_amount,
+                plan.asset_type,
+                plan.created_at,
+                plan.owner,
+                plan.beneficiary_count,
+                plan.status,
+            )
         }
+
 
         fn get_plan_info(
             self: @ContractState, plan_id: u256,
@@ -1053,8 +1056,6 @@ pub mod InheritXPlans {
             distribution_method: u8, // 0: LumpSum, 1: Quarterly, 2: Yearly, 3: Monthly
             total_amount: u256,
             period_amount: u256,
-            start_date: u64,
-            end_date: u64,
             beneficiaries: Array<DisbursementBeneficiary>,
         ) -> u256 {
             self.assert_not_paused();
@@ -1066,6 +1067,16 @@ pub mod InheritXPlans {
             let caller = get_caller_address();
             let current_time = get_block_timestamp();
             let plan_id = self.distribution_plan_count.read(()) + 1;
+
+            // Use current time as start date and calculate end date based on distribution method
+            let start_date = current_time;
+            let end_date = match distribution_method {
+                0 => current_time, // Lump sum - immediate
+                1 => current_time + 31536000, // Quarterly - 1 year from now
+                2 => current_time + 126144000, // Yearly - 4 years from now  
+                3 => current_time + 31536000, // Monthly - 1 year from now
+                _ => current_time,
+            };
 
             // Calculate period interval and total periods based on method
             let (_period_interval, total_periods) = match distribution_method {

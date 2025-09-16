@@ -73,23 +73,23 @@ fn create_test_claim_code() -> ByteArray {
 }
 
 // Helper function to create test distribution config for lump sum
-fn create_lump_sum_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
-    (1234567890, 0, 0, 0, "Test note", 0, 0)
+fn create_lump_sum_config() -> (u64, u8, u8, u8, ByteArray) {
+    (1234567890, 0, 0, 0, "Test note")
 }
 
 // Helper function to create test distribution config for quarterly
-fn create_quarterly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
-    (0, 25, 0, 0, "Quarterly note", 1234567890, 1234567890 + 31536000)
+fn create_quarterly_config() -> (u64, u8, u8, u8, ByteArray) {
+    (0, 25, 0, 0, "Quarterly note")
 }
 
 // Helper function to create test distribution config for yearly
-fn create_yearly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
-    (0, 0, 50, 0, "Yearly note", 1234567890, 1234567890 + 31536000)
+fn create_yearly_config() -> (u64, u8, u8, u8, ByteArray) {
+    (0, 0, 50, 0, "Yearly note")
 }
 
 // Helper function to create test distribution config for monthly
-fn create_monthly_config() -> (u64, u8, u8, u8, ByteArray, u64, u64) {
-    (0, 0, 0, 10, "Monthly note", 1234567890, 1234567890 + 31536000)
+fn create_monthly_config() -> (u64, u8, u8, u8, ByteArray) {
+    (0, 0, 0, 10, "Monthly note")
 }
 
 // Deploy the InheritXPlans contract
@@ -124,13 +124,7 @@ fn test_create_inheritance_plan_success() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -141,7 +135,6 @@ fn test_create_inheritance_plan_success() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000, // 1 STRK (with 6 decimals)
             0, // Lump sum distribution
@@ -150,8 +143,6 @@ fn test_create_inheritance_plan_success() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
 
@@ -178,13 +169,7 @@ fn test_create_inheritance_plan_invalid_inputs() {
 
     // Test empty plan name - this should fail
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -195,7 +180,6 @@ fn test_create_inheritance_plan_invalid_inputs() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -204,8 +188,6 @@ fn test_create_inheritance_plan_invalid_inputs() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
 
@@ -220,13 +202,7 @@ fn test_create_inheritance_plan_invalid_asset_type() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -238,7 +214,6 @@ fn test_create_inheritance_plan_invalid_asset_type() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             5, // Invalid asset type
             1000000,
             0, // Lump sum distribution
@@ -247,8 +222,6 @@ fn test_create_inheritance_plan_invalid_asset_type() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
 
@@ -263,13 +236,7 @@ fn test_create_inheritance_plan_invalid_claim_code_length() {
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
 
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -281,7 +248,6 @@ fn test_create_inheritance_plan_invalid_claim_code_length() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -290,8 +256,6 @@ fn test_create_inheritance_plan_invalid_claim_code_length() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             "12345" // Invalid length (5 digits)
         );
 
@@ -314,8 +278,6 @@ fn test_get_plan_count() {
         yearly_percentage,
         monthly_percentage,
         _additional_note,
-        _start_date,
-        _end_date,
     ) =
         create_lump_sum_config();
 
@@ -326,7 +288,6 @@ fn test_get_plan_count() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -335,8 +296,6 @@ fn test_get_plan_count() {
             yearly_percentage,
             monthly_percentage,
             _additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -352,13 +311,7 @@ fn test_get_plan_summary() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -369,7 +322,6 @@ fn test_get_plan_summary() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -378,14 +330,22 @@ fn test_get_plan_summary() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
 
-    // Test plan summary
-    let (plan_name, plan_description, asset_amount, asset_type, created_at) = contract
+    // Test plan summary - now returns 8 fields
+    let (
+        plan_name,
+        plan_description,
+        asset_amount,
+        asset_type,
+        created_at,
+        owner,
+        beneficiary_count,
+        status,
+    ) =
+        contract
         .get_plan_summary(plan_id);
 
     assert(plan_name == create_test_plan_name(), 'Name mismatch');
@@ -393,6 +353,9 @@ fn test_get_plan_summary() {
     assert(asset_amount == 1000000, 'Amount mismatch');
     assert(asset_type == AssetType::STRK, 'Type mismatch');
     assert(created_at == 0, 'Time is 0');
+    assert(owner == CREATOR_ADDR(), 'Owner mismatch');
+    assert(beneficiary_count == 1, 'Beneficiary count mismatch');
+    assert(status == PlanStatus::Active, 'Status mismatch');
 }
 
 #[test]
@@ -401,13 +364,7 @@ fn test_get_beneficiaries() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -418,7 +375,6 @@ fn test_get_beneficiaries() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -427,8 +383,6 @@ fn test_get_beneficiaries() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -438,7 +392,7 @@ fn test_get_beneficiaries() {
     assert(beneficiaries.len() == 1, 'Should have 1');
 
     let beneficiary = beneficiaries.at(0).clone();
-    assert(beneficiary.address == USER1_ADDR(), 'Address mismatch');
+    assert(beneficiary.address == ZERO_ADDR(), 'Address should be zero'); // No address needed
     assert(beneficiary.name == create_test_beneficiary_name(), 'Name mismatch');
     assert(beneficiary.email == create_test_beneficiary_email(), 'Email mismatch');
     assert(beneficiary.relationship == create_test_beneficiary_relationship(), 'Rel mismatch');
@@ -488,13 +442,7 @@ fn test_create_plan_with_lump_sum_distribution() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -505,7 +453,6 @@ fn test_create_plan_with_lump_sum_distribution() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -514,8 +461,6 @@ fn test_create_plan_with_lump_sum_distribution() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -533,13 +478,7 @@ fn test_create_plan_with_quarterly_distribution() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_quarterly_config();
 
@@ -550,7 +489,6 @@ fn test_create_plan_with_quarterly_distribution() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             1, // Quarterly distribution
@@ -559,8 +497,6 @@ fn test_create_plan_with_quarterly_distribution() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -576,13 +512,7 @@ fn test_create_plan_with_yearly_distribution() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_yearly_config();
 
@@ -593,7 +523,6 @@ fn test_create_plan_with_yearly_distribution() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             2, // Yearly distribution
@@ -602,8 +531,6 @@ fn test_create_plan_with_yearly_distribution() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -619,13 +546,7 @@ fn test_create_plan_with_monthly_distribution() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_monthly_config();
 
@@ -636,7 +557,6 @@ fn test_create_plan_with_monthly_distribution() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             3, // Monthly distribution
@@ -645,8 +565,6 @@ fn test_create_plan_with_monthly_distribution() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -664,13 +582,7 @@ fn test_create_plan_with_strk_asset() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -681,7 +593,6 @@ fn test_create_plan_with_strk_asset() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -690,8 +601,6 @@ fn test_create_plan_with_strk_asset() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -706,13 +615,7 @@ fn test_create_plan_with_usdt_asset() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -723,7 +626,6 @@ fn test_create_plan_with_usdt_asset() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             1, // USDT asset type
             1000000,
             0, // Lump sum distribution
@@ -732,8 +634,6 @@ fn test_create_plan_with_usdt_asset() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -748,13 +648,7 @@ fn test_create_plan_with_usdc_asset() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -765,7 +659,6 @@ fn test_create_plan_with_usdc_asset() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             2, // USDC asset type
             1000000,
             0, // Lump sum distribution
@@ -774,8 +667,6 @@ fn test_create_plan_with_usdc_asset() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -793,13 +684,7 @@ fn test_plan_creation_access_control() {
     // Test that only the caller can create plans
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -810,7 +695,6 @@ fn test_plan_creation_access_control() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -819,8 +703,6 @@ fn test_plan_creation_access_control() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
     assert(plan_id == 1, 'Created');
@@ -837,13 +719,7 @@ fn test_multiple_plans_creation() {
 
     // Create multiple plans
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -854,7 +730,6 @@ fn test_multiple_plans_creation() {
             "Ben 1",
             "Son",
             "ben1@test.com",
-            USER1_ADDR(),
             0, // STRK
             1000000,
             0, // Lump sum
@@ -863,8 +738,6 @@ fn test_multiple_plans_creation() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             "111111",
         );
 
@@ -874,8 +747,6 @@ fn test_multiple_plans_creation() {
         yearly_percentage2,
         monthly_percentage2,
         additional_note2,
-        start_date2,
-        end_date2,
     ) =
         create_quarterly_config();
 
@@ -886,7 +757,6 @@ fn test_multiple_plans_creation() {
             "Ben 2",
             "Daughter",
             "ben2@test.com",
-            USER2_ADDR(),
             1, // USDT
             2000000,
             1, // Quarterly
@@ -895,8 +765,6 @@ fn test_multiple_plans_creation() {
             yearly_percentage2,
             monthly_percentage2,
             additional_note2,
-            start_date2,
-            end_date2,
             "222222",
         );
 
@@ -928,13 +796,7 @@ fn test_zero_asset_amount() {
 
     // Test with zero asset amount (should fail)
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -945,7 +807,6 @@ fn test_zero_asset_amount() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             0, // Zero asset amount
             0, // Lump sum distribution
@@ -954,8 +815,6 @@ fn test_zero_asset_amount() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
 
@@ -970,13 +829,7 @@ fn test_zero_address_beneficiary() {
 
     // Test with zero address beneficiary (should fail)
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        _start_date,
-        _end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -987,7 +840,6 @@ fn test_zero_address_beneficiary() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            ZERO_ADDR(), // Zero address beneficiary
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -996,8 +848,6 @@ fn test_zero_address_beneficiary() {
             yearly_percentage,
             monthly_percentage,
             additional_note,
-            _start_date,
-            _end_date,
             create_test_claim_code(),
         );
 
@@ -1010,13 +860,7 @@ fn test_get_distribution_config() {
 
     start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
     let (
-        lump_sum_date,
-        quarterly_percentage,
-        yearly_percentage,
-        monthly_percentage,
-        additional_note,
-        start_date,
-        end_date,
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
     ) =
         create_lump_sum_config();
 
@@ -1027,7 +871,6 @@ fn test_get_distribution_config() {
             create_test_beneficiary_name(),
             create_test_beneficiary_relationship(),
             create_test_beneficiary_email(),
-            USER1_ADDR(),
             0, // STRK asset type
             1000000,
             0, // Lump sum distribution
@@ -1036,8 +879,6 @@ fn test_get_distribution_config() {
             yearly_percentage,
             monthly_percentage,
             additional_note.clone(),
-            start_date,
-            end_date,
             create_test_claim_code(),
         );
     stop_cheat_caller_address(contract.contract_address);
@@ -1049,6 +890,5 @@ fn test_get_distribution_config() {
     assert(config.yearly_percentage == yearly_percentage, 'Yr % mismatch');
     assert(config.monthly_percentage == monthly_percentage, 'Mth % mismatch');
     assert(config.additional_note == additional_note.clone(), 'Note mismatch');
-    assert(config.start_date == start_date, 'Start mismatch');
-    assert(config.end_date == end_date, 'End mismatch');
+    // Note: start_date and end_date are now calculated internally by the contract
 }

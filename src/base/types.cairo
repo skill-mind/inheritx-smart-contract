@@ -11,6 +11,28 @@ pub enum AssetType {
     NFT,
 }
 
+// Inheritance plan summary struct for comprehensive plan data
+#[derive(Serde, Drop, starknet::Store, PartialEq)]
+pub struct InheritancePlanSummary {
+    pub name: ByteArray,
+    pub description: ByteArray,
+    pub asset_amount: u256,
+    pub asset_type: AssetType,
+    pub created_at: u64,
+    pub owner: ContractAddress,
+    pub beneficiary_count: u8,
+    pub status: PlanStatus,
+    pub becomes_active_at: u64,
+    pub timeframe: u64,
+    pub nft_token_id: u256,
+    pub nft_contract: ContractAddress,
+    pub security_level: u8,
+    pub is_claimed: bool,
+    pub inactivity_threshold: u64,
+    pub last_activity: u64,
+    pub escrow_id: u256,
+}
+
 // User types for KYC
 #[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
 #[allow(starknet::store_no_default_variant)]
