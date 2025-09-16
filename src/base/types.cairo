@@ -84,20 +84,16 @@ pub struct InheritancePlan {
     pub emergency_contacts_count: u8 // Count of emergency contacts
 }
 
-// Enhanced Beneficiary type
+// Simplified Beneficiary type (based on UI images)
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct Beneficiary {
     pub address: ContractAddress,
-    pub email_hash: ByteArray, // Hash of beneficiary email
-    pub percentage: u8, // Share percentage (0-100)
+    pub name: ByteArray, // Beneficiary name
+    pub email: ByteArray, // Beneficiary email
+    pub relationship: ByteArray, // Relationship to owner
+    pub claim_code_hash: ByteArray, // Hashed claim code
     pub has_claimed: bool,
     pub claimed_amount: u256,
-    pub claim_code_hash: ByteArray,
-    pub added_at: u64,
-    pub kyc_status: KYCStatus,
-    pub relationship: ByteArray, // Encrypted relationship info
-    pub age: u8, // Age for minor protection
-    pub is_minor: bool // Special handling for minors
 }
 
 // Beneficiary data for plan creation with percentages
@@ -428,6 +424,7 @@ pub struct BasicPlanInfo {
     pub owner_email_hash: ByteArray,
     pub initial_beneficiary: ContractAddress,
     pub initial_beneficiary_email: ByteArray,
+    pub claim_code_hash: ByteArray,
     pub created_at: u64,
     pub status: PlanCreationStatus,
 }
@@ -641,6 +638,56 @@ pub struct ActivityMetadata {
     pub additional_data: ByteArray,
 }
 
+// Fee configuration
+#[derive(Serde, Drop, Clone, Copy, starknet::Store, PartialEq)]
+pub struct FeeConfig {
+    pub fee_percentage: u256, // Fee percentage in basis points (200 = 2%)
+    pub fee_recipient: ContractAddress, // Address to receive fees
+    pub is_active: bool, // Whether fees are currently active
+    pub min_fee: u256, // Minimum fee amount
+    pub max_fee: u256 // Maximum fee amount
+}
+
+// Withdrawal request
+#[derive(Serde, Drop, Clone, Copy, starknet::Store, PartialEq)]
+pub struct WithdrawalRequest {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: AssetType,
+    pub withdrawal_type: WithdrawalType,
+    pub amount: u256, // For percentage withdrawals, this is the percentage
+    pub nft_token_id: u256, // For NFT withdrawals
+    pub nft_contract: ContractAddress, // For NFT withdrawals
+    pub status: WithdrawalStatus,
+    pub requested_at: u64,
+    pub processed_at: u64,
+    pub processed_by: ContractAddress,
+    pub fees_deducted: u256,
+    pub net_amount: u256,
+}
+
+// Withdrawal type enum
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum WithdrawalType {
+    All, // Withdraw all assets
+    Percentage, // Withdraw a percentage
+    FixedAmount, // Withdraw a fixed amount
+    NFT // Withdraw specific NFT
+}
+
+// Withdrawal status enum
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum WithdrawalStatus {
+    Pending,
+    Approved,
+    Rejected,
+    Processed,
+    Cancelled,
+}
+
 // Enhanced asset allocation
 #[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
 pub struct AssetAllocation {
@@ -701,4 +748,73 @@ pub enum SpecialConditionType {
     EmploymentStatus,
     HealthCondition,
     Custom,
+}
+
+// ================ UNIFIED DISTRIBUTION SYSTEM ================
+
+#[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
+#[allow(starknet::store_no_default_variant)]
+pub enum DistributionMethod {
+    LumpSum,
+    Quarterly,
+    Yearly,
+    Monthly,
+}
+
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionPlan {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub total_amount: u256,
+    pub distribution_method: DistributionMethod,
+    pub period_amount: u256,
+    pub start_date: u64,
+    pub end_date: u64,
+    pub total_periods: u8,
+    pub completed_periods: u8,
+    pub next_disbursement_date: u64,
+    pub is_active: bool,
+    pub beneficiaries_count: u8,
+    pub disbursement_status: DisbursementStatus,
+    pub created_at: u64,
+    pub last_activity: u64,
+    pub paused_at: u64,
+    pub resumed_at: u64,
+}
+
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionRecord {
+    pub record_id: u256,
+    pub plan_id: u256,
+    pub period: u8,
+    pub amount: u256,
+    pub status: DisbursementStatus,
+    pub scheduled_date: u64,
+    pub executed_date: u64,
+    pub beneficiaries_count: u8,
+    pub transaction_hash: ByteArray,
+}
+
+// Distribution configuration for different methods
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct DistributionConfig {
+    pub distribution_method: DistributionMethod,
+    pub lump_sum_date: u64, // For lump sum: specific date
+    pub quarterly_percentage: u8, // For quarterly: percentage per quarter
+    pub yearly_percentage: u8, // For yearly: percentage per year
+    pub monthly_percentage: u8, // For monthly: percentage per month
+    pub additional_note: ByteArray, // Additional note for all methods
+    pub start_date: u64, // Start date for periodic distributions
+    pub end_date: u64 // End date for periodic distributions
+}
+
+// Comprehensive plan details response
+#[derive(Serde, Drop, Clone, PartialEq)]
+pub struct PlanDetails {
+    pub plan: InheritancePlan,
+    pub plan_name: ByteArray,
+    pub plan_description: ByteArray,
+    pub beneficiaries: Array<Beneficiary>,
+    pub distribution_plan: DistributionPlan,
+    pub escrow_account: EscrowAccount,
 }

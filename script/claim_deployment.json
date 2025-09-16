@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "account": "0x0521beee0243e3b42f9cceac335c1d51f85c888a7b03c89c100b085a7b21f5e7",
+  "contractName": "InheritXClaim",
+  "classHash": "0x22a674d26a7a0821148b29b21b1e1d10db89bff78f7b8cd145cf519ec60b816",
+  "contractAddress": "0x2f6f1be0648d262f0c41c07966d9c59a9249d0af3e2013c9d621860dc27d9c5",
+  "tx": {
+    "declare": "0x274c6722c22c66eb1fea630ef9c7ce954355a2de2b554f9bf0cca1c8d71635e",
+    "deploy": "0x520b568c76f4c42f5258fb2c4cd3ad2e0ce660fdb204b4ea752bf50811c4de0"
+  },
+  "constructorArgs": [
+    "2321187944565768304368812891512324155087427046671616469923471787211423348199"
+  ],
+  "timestamp": "2025-09-09T11:01:32.138Z"
+}

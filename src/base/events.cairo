@@ -20,6 +20,21 @@ pub struct InheritancePlanCreated {
 }
 
 #[derive(Drop, starknet::Event)]
+pub struct PlanCreated {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub plan_name: ByteArray,
+    pub plan_description: ByteArray,
+    pub beneficiary_name: ByteArray,
+    pub beneficiary_relationship: ByteArray,
+    pub beneficiary_email: ByteArray,
+    pub asset_type: u8,
+    pub asset_amount: u256,
+    pub distribution_method: u8,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
 pub struct InheritancePlanUpdated {
     pub plan_id: u256,
     pub updated_at: u64,
@@ -138,6 +153,24 @@ pub struct ClaimCodeExpired {
     pub beneficiary: ContractAddress,
     pub code_hash: ByteArray,
     pub expired_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ClaimCodeStored {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub code_hash: ByteArray,
+    pub stored_at: u64,
+    pub expires_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct InheritanceClaimed {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub claimed_at: u64,
+    pub claim_code: ByteArray,
+    pub amount: u256,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -565,7 +598,49 @@ pub struct BeneficiaryModified {
     pub modified_by: ContractAddress,
 }
 
-// Monthly Disbursement Events
+// Unified Distribution Events
+#[derive(Drop, starknet::Event)]
+pub struct DistributionPlanCreated {
+    pub plan_id: u256,
+    pub owner: ContractAddress,
+    pub distribution_method: u8,
+    pub total_amount: u256,
+    pub period_amount: u256,
+    pub start_date: u64,
+    pub end_date: u64,
+    pub created_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionExecuted {
+    pub plan_id: u256,
+    pub record_id: u256,
+    pub period: u64,
+    pub amount: u256,
+    pub executed_at: u64,
+    pub beneficiaries_count: u8,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionPaused {
+    pub plan_id: u256,
+    pub paused_at: u64,
+    pub reason: ByteArray,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionResumed {
+    pub plan_id: u256,
+    pub resumed_at: u64,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct DistributionCancelled {
+    pub plan_id: u256,
+    pub cancelled_at: u64,
+    pub reason: ByteArray,
+}
+
 #[derive(Drop, starknet::Event)]
 pub struct MonthlyDisbursementPlanCreated {
     pub plan_id: u256,
@@ -662,4 +737,125 @@ pub struct InactivityThresholdUpdated {
     pub old_threshold: u64,
     pub new_threshold: u64,
     pub updated_at: u64,
+}
+
+// ================ FEE EVENTS ================
+
+/// @notice Emitted when fees are collected from an inheritance claim
+#[derive(Drop, starknet::Event)]
+pub struct FeeCollected {
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub fee_amount: u256,
+    pub fee_percentage: u256,
+    pub gross_amount: u256,
+    pub net_amount: u256,
+    pub fee_recipient: ContractAddress,
+    pub collected_at: u64,
+}
+
+/// @notice Emitted when fee configuration is updated
+#[derive(Drop, starknet::Event)]
+pub struct FeeConfigUpdated {
+    pub old_fee_percentage: u256,
+    pub new_fee_percentage: u256,
+    pub old_fee_recipient: ContractAddress,
+    pub new_fee_recipient: ContractAddress,
+    pub updated_by: ContractAddress,
+    pub updated_at: u64,
+}
+
+// ================ WITHDRAWAL EVENTS ================
+
+/// @notice Emitted when a withdrawal request is created
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestCreated {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: u8,
+    pub withdrawal_type: u8,
+    pub amount: u256,
+    pub nft_token_id: u256,
+    pub nft_contract: ContractAddress,
+    pub requested_at: u64,
+}
+
+/// @notice Emitted when a withdrawal request is approved
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestApproved {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub approved_by: ContractAddress,
+    pub approved_at: u64,
+    pub fees_deducted: u256,
+    pub net_amount: u256,
+}
+
+/// @notice Emitted when a withdrawal request is processed
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestProcessed {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub asset_type: u8,
+    pub amount: u256,
+    pub processed_at: u64,
+    pub transaction_hash: ByteArray,
+}
+
+/// @notice Emitted when a withdrawal request is rejected
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestRejected {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub rejected_by: ContractAddress,
+    pub rejected_at: u64,
+    pub rejection_reason: ByteArray,
+}
+
+/// @notice Emitted when a withdrawal request is cancelled
+#[derive(Drop, starknet::Event)]
+pub struct WithdrawalRequestCancelled {
+    pub request_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub cancelled_by: ContractAddress,
+    pub cancelled_at: u64,
+    pub cancellation_reason: ByteArray,
+}
+
+// ================ ESCROW EVENTS (ADDITIONAL) ================
+
+/// @notice Emitted when assets are locked in escrow
+#[derive(Drop, starknet::Event)]
+pub struct AssetsLockedInEscrow {
+    pub escrow_id: u256,
+    pub plan_id: u256,
+    pub locked_at: u64,
+    pub fees: u256,
+    pub tax_liability: u256,
+}
+
+/// @notice Emitted when assets are released from escrow
+#[derive(Drop, starknet::Event)]
+pub struct AssetsReleasedFromEscrow {
+    pub escrow_id: u256,
+    pub plan_id: u256,
+    pub beneficiary: ContractAddress,
+    pub released_at: u64,
+    pub release_reason: ByteArray,
+}
+
+// ================ EMERGENCY EVENTS (ADDITIONAL) ================
+
+/// @notice Emitted when emergency withdrawal is executed
+#[derive(Drop, starknet::Event)]
+pub struct EmergencyWithdraw {
+    pub token_address: ContractAddress,
+    pub amount: u256,
+    pub withdrawn_to: ContractAddress,
+    pub withdrawn_at: u64,
 }

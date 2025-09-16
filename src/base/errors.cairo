@@ -8,6 +8,7 @@ pub const ERR_INVALID_INPUT: felt252 = 'Invalid input parameters';
 pub const ERR_PLAN_NOT_FOUND: felt252 = 'Inheritance plan not found';
 pub const ERR_PLAN_ALREADY_EXISTS: felt252 = 'Plan already exists';
 pub const ERR_PLAN_NOT_ACTIVE: felt252 = 'Plan is not active';
+pub const ERR_PLAN_ALREADY_ACTIVE: felt252 = 'Plan is already active';
 pub const ERR_PLAN_ALREADY_EXECUTED: felt252 = 'Plan already executed';
 pub const ERR_PLAN_ALREADY_CLAIMED: felt252 = 'Plan already claimed';
 pub const ERR_INVALID_TIMEFRAME: felt252 = 'Invalid timeframe';
@@ -86,3 +87,8 @@ pub const ERR_WALLET_NOT_BLACKLISTED: felt252 = 'Wallet not blacklisted';
 // Plan creation flow errors
 pub const ERR_INVALID_ADDRESS: felt252 = 'Invalid address';
 pub const ERR_INVALID_STATE: felt252 = 'Invalid state';
+
+// Withdrawal errors
+pub const ERR_WITHDRAWAL_REQUEST_NOT_FOUND: felt252 = 'Withdrawal request not found';
+pub const ERR_WITHDRAWAL_ALREADY_PROCESSED: felt252 = 'Withdrawal already processed';
+pub const ERR_WITHDRAWAL_NOT_APPROVED: felt252 = 'Withdrawal not approved';
