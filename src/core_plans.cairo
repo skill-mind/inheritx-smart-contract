@@ -78,8 +78,17 @@ pub mod InheritXPlans {
         // Plan metadata
         plan_names: Map<u256, ByteArray>, // plan_id -> plan_name
         plan_descriptions: Map<u256, ByteArray>, // plan_id -> plan_description
-        // User plans - simple counter approach
+        // User plans - array of plan IDs per user
         user_plan_count: Map<ContractAddress, u256>, // user -> count of plans
+        user_plans: Map<(ContractAddress, u256), u256>, // (user, index) -> global_plan_id
+        // User-specific plan ID tracking
+        user_plan_id_counter: Map<ContractAddress, u256>, // user -> next user plan ID to assign
+        user_plan_id_to_global: Map<
+            (ContractAddress, u256), u256,
+        >, // (user, user_plan_id) -> global_plan_id
+        global_plan_id_to_user: Map<
+            u256, (ContractAddress, u256),
+        >, // global_plan_id -> (user, user_plan_id)
         // Beneficiary management - real storage
         plan_beneficiaries: Map<
             (u256, u256), Beneficiary,
@@ -284,12 +293,41 @@ pub mod InheritXPlans {
         ) -> InactivityMonitor;
         fn get_beneficiary_count(self: @ContractState, basic_info_id: u256) -> u256;
         fn get_plan_summary(
-            self: @ContractState, plan_id: u256,
-        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+            self: @ContractState, user_address: ContractAddress,
+        ) -> Array<
+            (u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus),
+        >;
 
         fn get_plan_info(
             self: @ContractState, plan_id: u256,
         ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+
+        fn get_plan_by_id(
+            self: @ContractState, plan_id: u256,
+        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+
+        fn get_summary(
+            self: @ContractState, user_address: ContractAddress,
+        ) -> Array<
+            (u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus),
+        >;
+
+        fn get_all_plans(
+            self: @ContractState,
+        ) -> Array<
+            (
+                u256,
+                ByteArray,
+                ByteArray,
+                u256,
+                AssetType,
+                u64,
+                ContractAddress,
+                u8,
+                PlanStatus,
+                Array<Beneficiary>,
+            ),
+        >;
 
         // Plan creation flow
 
@@ -430,7 +468,19 @@ pub mod InheritXPlans {
 
             let caller = get_caller_address();
 
-            let plan_id = self.plan_count.read() + 1;
+            // Generate global plan ID
+            let global_plan_id = self.plan_count.read() + 1;
+
+            // Generate user-specific plan ID (starts from 1 for each user)
+            let user_plan_id = self.user_plan_id_counter.read(caller) + 1;
+            self.user_plan_id_counter.write(caller, user_plan_id);
+
+            // Create mapping between user plan ID and global plan ID
+            self.user_plan_id_to_global.write((caller, user_plan_id), global_plan_id);
+            self.global_plan_id_to_user.write(global_plan_id, (caller, user_plan_id));
+
+            // Use global_plan_id for internal storage
+            let plan_id = global_plan_id;
             let escrow_id = self.escrow_count.read() + 1;
 
             // Hash the claim code for storage
@@ -586,13 +636,15 @@ pub mod InheritXPlans {
 
             // Add to user plans
             let user_plan_count = self.user_plan_count.read(caller);
-            self.user_plan_count.write(caller, user_plan_count + 1);
+            let new_user_plan_count = user_plan_count + 1;
+            self.user_plan_count.write(caller, new_user_plan_count);
+            self.user_plans.write((caller, new_user_plan_count), user_plan_id);
 
             // Emit comprehensive plan creation event
             self
                 .emit(
                     PlanCreated {
-                        plan_id,
+                        plan_id: user_plan_id, // Emit user-specific plan ID
                         owner: caller,
                         plan_name: plan_name.clone(),
                         plan_description: plan_description.clone(),
@@ -606,7 +658,7 @@ pub mod InheritXPlans {
                     },
                 );
 
-            plan_id
+            user_plan_id // Return user-specific plan ID
         }
 
 
@@ -881,25 +933,39 @@ pub mod InheritXPlans {
         // Required getter functions
 
         fn get_plan_summary(
-            self: @ContractState, plan_id: u256,
-        ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus) {
-            self.assert_plan_exists(plan_id);
-            let plan_name = self.plan_names.read(plan_id);
-            let plan_description = self.plan_descriptions.read(plan_id);
-            let plan = self.inheritance_plans.read(plan_id);
+            self: @ContractState, user_address: ContractAddress,
+        ) -> Array<
+            (u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus),
+        > {
+            let user_plan_count = self.user_plan_count.read(user_address);
+            let mut plans = ArrayTrait::new();
 
-            // Return basic plan data: name, description, amount, asset_type, created_at, owner,
-            // beneficiary_count, status
-            (
-                plan_name,
-                plan_description,
-                plan.asset_amount,
-                plan.asset_type,
-                plan.created_at,
-                plan.owner,
-                plan.beneficiary_count,
-                plan.status,
-            )
+            let mut i: u256 = 1;
+            while i != user_plan_count + 1 {
+                let user_plan_id = self.user_plans.read((user_address, i));
+                let global_plan_id = self.user_plan_id_to_global.read((user_address, user_plan_id));
+                let plan_name = self.plan_names.read(global_plan_id);
+                let plan_description = self.plan_descriptions.read(global_plan_id);
+                let plan = self.inheritance_plans.read(global_plan_id);
+
+                // Return basic plan data: user_plan_id, name, description, amount, asset_type,
+                // created_at, owner, beneficiary_count, status
+                let plan_data = (
+                    user_plan_id, // Return user-specific plan ID
+                    plan_name,
+                    plan_description,
+                    plan.asset_amount,
+                    plan.asset_type,
+                    plan.created_at,
+                    plan.owner,
+                    plan.beneficiary_count,
+                    plan.status,
+                );
+                plans.append(plan_data);
+                i += 1;
+            }
+
+            plans
         }
 
 
@@ -923,6 +989,119 @@ pub mod InheritXPlans {
                 plan.security_level,
                 plan.status,
             )
+        }
+
+        fn get_plan_by_id(
+            self: @ContractState, user_address: ContractAddress, user_plan_id: u256,
+        ) -> PlanDetailsWithCreation {
+            // Get global plan ID from user plan ID
+            let global_plan_id = self.user_plan_id_to_global.read((user_address, user_plan_id));
+            assert(global_plan_id != 0, ERR_PLAN_NOT_FOUND);
+
+            let plan_name = self.plan_names.read(global_plan_id);
+            let plan_description = self.plan_descriptions.read(global_plan_id);
+            let plan = self.inheritance_plans.read(global_plan_id);
+
+            // Get beneficiary details (assuming first beneficiary for simplicity)
+            let beneficiary = self.plan_beneficiaries.read((global_plan_id, 1));
+
+            // Get distribution configuration
+            let distribution_config = self.distribution_configs.read(global_plan_id);
+
+            // Return all creation parameters in a struct
+            PlanDetailsWithCreation {
+                plan_name,
+                plan_description,
+                asset_amount: plan.asset_amount,
+                asset_type: plan.asset_type,
+                created_at: plan.created_at,
+                owner: plan.owner,
+                beneficiary_count: plan.beneficiary_count,
+                status: plan.status,
+                beneficiary_name: beneficiary.name,
+                beneficiary_relationship: beneficiary.relationship,
+                beneficiary_email: beneficiary.email,
+                distribution_method: match distribution_config.distribution_method {
+                    DistributionMethod::LumpSum => 0,
+                    DistributionMethod::Quarterly => 1,
+                    DistributionMethod::Yearly => 2,
+                    DistributionMethod::Monthly => 3,
+                },
+                lump_sum_date: distribution_config.lump_sum_date,
+                quarterly_percentage: distribution_config.quarterly_percentage,
+                yearly_percentage: distribution_config.yearly_percentage,
+                monthly_percentage: distribution_config.monthly_percentage,
+                additional_note: distribution_config.additional_note,
+                claim_code_hash: plan
+                    .claim_code_hash // Note: This returns the hash, not the original code
+            }
+        }
+
+        fn get_summary(
+            self: @ContractState, user_address: ContractAddress,
+        ) -> Array<
+            (u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus),
+        > {
+            // This is an alias for get_plan_summary for backward compatibility
+            self.get_plan_summary(user_address)
+        }
+
+        fn get_all_plans(
+            self: @ContractState,
+        ) -> Array<
+            (
+                u256,
+                ByteArray,
+                ByteArray,
+                u256,
+                AssetType,
+                u64,
+                ContractAddress,
+                u8,
+                PlanStatus,
+                Array<Beneficiary>,
+            ),
+        > {
+            let total_plan_count = self.plan_count.read();
+            let mut plans = ArrayTrait::new();
+
+            let mut i: u256 = 1;
+            while i != total_plan_count + 1 {
+                let plan = self.inheritance_plans.read(i);
+                let plan_name = self.plan_names.read(i);
+                let plan_description = self.plan_descriptions.read(i);
+
+                // Get all beneficiaries for this plan
+                let mut beneficiaries = ArrayTrait::new();
+                let beneficiary_count = self.plan_beneficiary_count.read(i);
+                let mut j: u256 = 1;
+                while j != beneficiary_count + 1 {
+                    let beneficiary = self.plan_beneficiaries.read((i, j));
+                    if !beneficiary.has_claimed {
+                        beneficiaries.append(beneficiary);
+                    }
+                    j += 1;
+                }
+
+                // Return basic plan data with beneficiaries: global_plan_id, name, description,
+                // amount, asset_type, created_at, owner, beneficiary_count, status, beneficiaries
+                let plan_data = (
+                    i, // Return global plan ID
+                    plan_name,
+                    plan_description,
+                    plan.asset_amount,
+                    plan.asset_type,
+                    plan.created_at,
+                    plan.owner,
+                    plan.beneficiary_count,
+                    plan.status,
+                    beneficiaries,
+                );
+                plans.append(plan_data);
+                i += 1;
+            }
+
+            plans
         }
 
         // ================ HELPER FUNCTIONS ================

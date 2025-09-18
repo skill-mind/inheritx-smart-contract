@@ -64,12 +64,37 @@ pub trait IInheritXPlans<TContractState> {
 
     fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
     fn get_plan_summary(
-        self: @TContractState, plan_id: u256,
-    ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+        self: @TContractState, user_address: ContractAddress,
+    ) -> Array<(u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus)>;
 
     fn get_plan_info(
         self: @TContractState, plan_id: u256,
     ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+
+    fn get_plan_by_id(
+        self: @TContractState, user_address: ContractAddress, user_plan_id: u256,
+    ) -> PlanDetailsWithCreation;
+
+    fn get_summary(
+        self: @TContractState, user_address: ContractAddress,
+    ) -> Array<(u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus)>;
+
+    fn get_all_plans(
+        self: @TContractState,
+    ) -> Array<
+        (
+            u256,
+            ByteArray,
+            ByteArray,
+            u256,
+            AssetType,
+            u64,
+            ContractAddress,
+            u8,
+            PlanStatus,
+            Array<Beneficiary>,
+        ),
+    >;
 
     // ================ HELPER FUNCTIONS ================
 

@@ -1,5 +1,6 @@
 use core::array::ArrayTrait;
 use core::byte_array::ByteArray;
+use core::traits::TryInto;
 use inheritx_contracts::base::types::{AssetType, PlanStatus};
 use inheritx_contracts::interfaces::iplans::{
     IInheritXPlansDispatcher, IInheritXPlansDispatcherTrait,
@@ -74,7 +75,7 @@ fn create_test_claim_code() -> ByteArray {
 
 // Helper function to create test distribution config for lump sum
 fn create_lump_sum_config() -> (u64, u8, u8, u8, ByteArray) {
-    (1234567890, 0, 0, 0, "Test note")
+    (123456789, 0, 0, 0, "Test note")
 }
 
 // Helper function to create test distribution config for quarterly
@@ -334,8 +335,12 @@ fn test_get_plan_summary() {
         );
     stop_cheat_caller_address(contract.contract_address);
 
-    // Test plan summary - now returns 8 fields
+    // Test plan summary by user address - returns array of plans
+    let plans = contract.get_plan_summary(CREATOR_ADDR());
+    assert(plans.len() == 1, 'Should have 1 plan');
+
     let (
+        plan_id_returned,
         plan_name,
         plan_description,
         asset_amount,
@@ -345,9 +350,134 @@ fn test_get_plan_summary() {
         beneficiary_count,
         status,
     ) =
-        contract
-        .get_plan_summary(plan_id);
+        plans
+        .at(0)
+        .clone();
 
+    assert(plan_id_returned == plan_id, 'Plan ID mismatch');
+    assert(plan_name == create_test_plan_name(), 'Name mismatch');
+    assert(plan_description == create_test_plan_description(), 'Desc mismatch');
+    assert(asset_amount == 1000000, 'Amount mismatch');
+    assert(asset_type == AssetType::STRK, 'Type mismatch');
+    assert(created_at == 0, 'Time is 0');
+    assert(owner == CREATOR_ADDR(), 'Owner mismatch');
+    assert(beneficiary_count == 1, 'Beneficiary count mismatch');
+    assert(status == PlanStatus::Active, 'Status mismatch');
+}
+
+#[test]
+fn test_get_plan_by_id() {
+    let contract = deploy_plans_contract();
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
+    ) =
+        create_lump_sum_config();
+
+    let plan_id = contract
+        .create_inheritance_plan(
+            create_test_plan_name(),
+            create_test_plan_description(),
+            create_test_beneficiary_name(),
+            create_test_beneficiary_relationship(),
+            create_test_beneficiary_email(),
+            0, // STRK asset type
+            1000000,
+            0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            create_test_claim_code(),
+        );
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Test get plan by ID - returns single plan data with all creation parameters
+    let plan_details = contract.get_plan_by_id(CREATOR_ADDR(), plan_id);
+
+    // Test original parameters
+    assert(plan_details.plan_name == create_test_plan_name(), 'Name mismatch');
+    assert(plan_details.plan_description == create_test_plan_description(), 'Desc mismatch');
+    assert(plan_details.asset_amount == 1000000, 'Amount mismatch');
+    assert(plan_details.asset_type == AssetType::STRK, 'Type mismatch');
+    assert(plan_details.created_at == 0, 'Time is 0');
+    assert(plan_details.owner == CREATOR_ADDR(), 'Owner mismatch');
+    assert(plan_details.beneficiary_count == 1, 'Beneficiary count mismatch');
+    assert(plan_details.status == PlanStatus::Active, 'Status mismatch');
+
+    // Test additional creation parameters
+    assert(
+        plan_details.beneficiary_name == create_test_beneficiary_name(),
+        'Beneficiary name mismatch',
+    );
+    assert(
+        plan_details.beneficiary_relationship == create_test_beneficiary_relationship(),
+        'Beneficiary relship mismatch',
+    );
+    assert(
+        plan_details.beneficiary_email == create_test_beneficiary_email(),
+        'Beneficiary email mismatch',
+    );
+    assert(plan_details.distribution_method == 0, 'Distribution method mismatch'); // Lump sum = 0
+    assert(plan_details.lump_sum_date == 123456789, 'Lump sum date mismatch');
+    assert(plan_details.quarterly_percentage == 0, 'Quarterly percentage mismatch');
+    assert(plan_details.yearly_percentage == 0, 'Yearly percentage mismatch');
+    assert(plan_details.monthly_percentage == 0, 'Monthly percentage mismatch');
+    assert(plan_details.additional_note == "Test note", 'Additional note mismatch');
+    assert(plan_details.claim_code_hash == create_test_claim_code(), 'Claim code hash mismatch');
+}
+
+#[test]
+fn test_get_summary() {
+    let contract = deploy_plans_contract();
+
+    start_cheat_caller_address(contract.contract_address, CREATOR_ADDR());
+    let (
+        lump_sum_date, quarterly_percentage, yearly_percentage, monthly_percentage, additional_note,
+    ) =
+        create_lump_sum_config();
+
+    let plan_id = contract
+        .create_inheritance_plan(
+            create_test_plan_name(),
+            create_test_plan_description(),
+            create_test_beneficiary_name(),
+            create_test_beneficiary_relationship(),
+            create_test_beneficiary_email(),
+            0, // STRK asset type
+            1000000,
+            0, // Lump sum distribution
+            lump_sum_date,
+            quarterly_percentage,
+            yearly_percentage,
+            monthly_percentage,
+            additional_note,
+            create_test_claim_code(),
+        );
+    stop_cheat_caller_address(contract.contract_address);
+
+    // Test get summary - should return same as get_plan_summary
+    let plans = contract.get_summary(CREATOR_ADDR());
+    assert(plans.len() == 1, 'Should have 1 plan');
+
+    let (
+        plan_id_returned,
+        plan_name,
+        plan_description,
+        asset_amount,
+        asset_type,
+        created_at,
+        owner,
+        beneficiary_count,
+        status,
+    ) =
+        plans
+        .at(0)
+        .clone();
+
+    assert(plan_id_returned == plan_id, 'Plan ID mismatch');
     assert(plan_name == create_test_plan_name(), 'Name mismatch');
     assert(plan_description == create_test_plan_description(), 'Desc mismatch');
     assert(asset_amount == 1000000, 'Amount mismatch');
@@ -785,6 +915,28 @@ fn test_multiple_plans_creation() {
     assert(plan2.plan.id == 2, 'ID 2');
     assert(plan1.plan.asset_type == AssetType::STRK, 'Type 1');
     assert(plan2.plan.asset_type == AssetType::USDT, 'Type 2');
+
+    // Test get_plan_summary with multiple plans
+    let user_plans = contract.get_plan_summary(CREATOR_ADDR());
+    assert(user_plans.len() == 2, 'Should have 2 plans');
+
+    // Verify first plan
+    let (plan_id_1, name_1, desc_1, amount_1, type_1, created_1, owner_1, count_1, status_1) =
+        user_plans
+        .at(0)
+        .clone();
+    assert(plan_id_1 == 1, 'Plan 1 ID');
+    assert(name_1 == "Plan 1", 'Plan 1 name');
+    assert(type_1 == AssetType::STRK, 'Plan 1 type');
+
+    // Verify second plan
+    let (plan_id_2, name_2, desc_2, amount_2, type_2, created_2, owner_2, count_2, status_2) =
+        user_plans
+        .at(1)
+        .clone();
+    assert(plan_id_2 == 2, 'Plan 2 ID');
+    assert(name_2 == "Plan 2", 'Plan 2 name');
+    assert(type_2 == AssetType::USDT, 'Plan 2 type');
 }
 
 #[test]
@@ -833,7 +985,7 @@ fn test_zero_address_beneficiary() {
     ) =
         create_lump_sum_config();
 
-    let _result = contract
+    let _ = contract
         .create_inheritance_plan(
             create_test_plan_name(),
             create_test_plan_description(),
