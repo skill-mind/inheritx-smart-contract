@@ -15,7 +15,6 @@ pub trait IInheritXPlans<TContractState> {
         beneficiary_name: ByteArray,
         beneficiary_relationship: ByteArray,
         beneficiary_email: ByteArray,
-        beneficiary_address: ContractAddress,
         // Step 3: Asset Allocation
         asset_type: u8,
         asset_amount: u256,
@@ -27,8 +26,6 @@ pub trait IInheritXPlans<TContractState> {
         yearly_percentage: u8, // For yearly: percentage per year
         monthly_percentage: u8, // For monthly: percentage per month
         additional_note: ByteArray, // Additional note for all methods
-        start_date: u64, // Start date for periodic distributions
-        end_date: u64, // End date for periodic distributions
         claim_code: ByteArray // Single 6-digit claim code
     ) -> u256;
 
@@ -36,7 +33,6 @@ pub trait IInheritXPlans<TContractState> {
     fn add_beneficiary_to_plan(
         ref self: TContractState,
         plan_id: u256,
-        beneficiary: ContractAddress,
         name: ByteArray,
         email: ByteArray,
         relationship: ByteArray,
@@ -68,12 +64,37 @@ pub trait IInheritXPlans<TContractState> {
 
     fn get_beneficiary_count(self: @TContractState, basic_info_id: u256) -> u256;
     fn get_plan_summary(
-        self: @TContractState, plan_id: u256,
-    ) -> (ByteArray, ByteArray, u256, AssetType, u64);
+        self: @TContractState, user_address: ContractAddress,
+    ) -> Array<(u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus)>;
 
     fn get_plan_info(
         self: @TContractState, plan_id: u256,
     ) -> (ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus);
+
+    fn get_plan_by_id(
+        self: @TContractState, user_address: ContractAddress, user_plan_id: u256,
+    ) -> PlanDetailsWithCreation;
+
+    fn get_summary(
+        self: @TContractState, user_address: ContractAddress,
+    ) -> Array<(u256, ByteArray, ByteArray, u256, AssetType, u64, ContractAddress, u8, PlanStatus)>;
+
+    fn get_all_plans(
+        self: @TContractState,
+    ) -> Array<
+        (
+            u256,
+            ByteArray,
+            ByteArray,
+            u256,
+            AssetType,
+            u64,
+            ContractAddress,
+            u8,
+            PlanStatus,
+            Array<Beneficiary>,
+        ),
+    >;
 
     // ================ HELPER FUNCTIONS ================
 
@@ -102,8 +123,6 @@ pub trait IInheritXPlans<TContractState> {
         distribution_method: u8, // 0: LumpSum, 1: Quarterly, 2: Yearly, 3: Monthly
         total_amount: u256,
         period_amount: u256,
-        start_date: u64,
-        end_date: u64,
         beneficiaries: Array<DisbursementBeneficiary>,
     ) -> u256;
 

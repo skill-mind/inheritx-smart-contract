@@ -11,6 +11,28 @@ pub enum AssetType {
     NFT,
 }
 
+// Inheritance plan summary struct for comprehensive plan data
+#[derive(Serde, Drop, starknet::Store, PartialEq)]
+pub struct InheritancePlanSummary {
+    pub name: ByteArray,
+    pub description: ByteArray,
+    pub asset_amount: u256,
+    pub asset_type: AssetType,
+    pub created_at: u64,
+    pub owner: ContractAddress,
+    pub beneficiary_count: u8,
+    pub status: PlanStatus,
+    pub becomes_active_at: u64,
+    pub timeframe: u64,
+    pub nft_token_id: u256,
+    pub nft_contract: ContractAddress,
+    pub security_level: u8,
+    pub is_claimed: bool,
+    pub inactivity_threshold: u64,
+    pub last_activity: u64,
+    pub escrow_id: u256,
+}
+
 // User types for KYC
 #[derive(Serde, Drop, Copy, starknet::Store, PartialEq)]
 #[allow(starknet::store_no_default_variant)]
@@ -82,6 +104,29 @@ pub struct InheritancePlan {
     pub security_level: u8, // New: security level (1-5)
     pub auto_execute: bool, // New: auto-execute on maturity
     pub emergency_contacts_count: u8 // Count of emergency contacts
+}
+
+// Plan details with all creation parameters
+#[derive(Serde, Drop, Clone, starknet::Store, PartialEq)]
+pub struct PlanDetailsWithCreation {
+    pub plan_name: ByteArray,
+    pub plan_description: ByteArray,
+    pub asset_amount: u256,
+    pub asset_type: AssetType,
+    pub created_at: u64,
+    pub owner: ContractAddress,
+    pub beneficiary_count: u8,
+    pub status: PlanStatus,
+    pub beneficiary_name: ByteArray,
+    pub beneficiary_relationship: ByteArray,
+    pub beneficiary_email: ByteArray,
+    pub distribution_method: u8,
+    pub lump_sum_date: u64,
+    pub quarterly_percentage: u8,
+    pub yearly_percentage: u8,
+    pub monthly_percentage: u8,
+    pub additional_note: ByteArray,
+    pub claim_code_hash: ByteArray,
 }
 
 // Simplified Beneficiary type (based on UI images)

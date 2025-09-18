@@ -9,7 +9,6 @@ pub mod interfaces {
     pub mod icore;
     pub mod idex_router;
     pub mod iinheritx;
-    pub mod ikyc;
     pub mod ioperations;
     pub mod iplans;
 }
@@ -19,4 +18,3 @@ pub mod core_operations;
 pub mod core_plans;
 
 pub mod inheritx;
-pub mod kyc;
